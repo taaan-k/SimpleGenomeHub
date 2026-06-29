@@ -1,0 +1,75 @@
+SimpleGenomeHub Source License
+MIT-Style, Non-Commercial by Default
+
+Copyright (c) 2026 Taaan-k
+
+This license applies only to the original SimpleGenomeHub source code and
+project-owned files in this repository.
+
+It does not replace, override, or relicense any third-party dependency,
+including TBtools-related jars, bundled binaries, or other external components.
+Those components remain subject to their own licenses and terms.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files, to use, copy, modify,
+and redistribute the software for personal, educational, academic, research,
+and other non-commercial purposes, subject to the following conditions:
+
+1. Attribution
+
+The above copyright notice and this license notice shall be included in all
+copies or substantial portions of the software.
+
+2. Non-Commercial Use Only
+
+Commercial use of this software is not permitted without prior written
+permission from the author.
+
+For this license, commercial use includes, but is not limited to:
+
+- using this software in a commercial product or paid service;
+- integrating this software into internal business systems or customer-facing
+  platforms;
+- providing paid services, consulting, hosting, training, automation, or
+  technical support based on this software;
+- redistributing, sublicensing, or packaging this software as part of a
+  revenue-generating offering;
+- using this software in a way that directly generates revenue or supports
+  commercial business operations.
+
+3. Commercial Licensing
+
+If you want to use this software for commercial purposes, you must contact the
+author in advance.
+
+Contact:
+
+Author: [Author Name]
+Email: [your-email@example.com]
+
+A separate commercial license or explicit written authorization is required
+before any commercial use is allowed.
+
+4. Modifications and Redistribution
+
+You may modify and redistribute this software for non-commercial purposes,
+provided that:
+
+- this license file is kept with the redistributed version;
+- copyright, attribution, and license notices are not removed or altered;
+- any significant modifications are clearly identified.
+
+5. No Warranty
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR
+OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE
+OR OTHER DEALINGS IN THE SOFTWARE.
+
+6. Reservation of Rights
+
+Any rights not expressly granted by this license are reserved by the author.
