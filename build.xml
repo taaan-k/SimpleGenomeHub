@@ -1,0 +1,366 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SimpleGenomeHub NetBeans Ant Build Script -->
+<project name="SimpleGenomeHub" default="default" basedir=".">
+    <description>Builds, tests, and runs the SimpleGenomeHub project.</description>
+    <property environment="env"/>
+    
+    <!-- NetBeans build implementation import (optional) -->
+    <!-- <import file="nbproject/build-impl.xml"/> -->
+    
+    <!-- Project properties -->
+    <property name="src.dir" location="src"/>
+    <property name="test.src.dir" location="test"/>
+    <property name="build.dir" location="build"/>
+    <property name="build.classes.dir" location="${build.dir}/classes"/>
+    <property name="build.test.classes.dir" location="${build.dir}/test/classes"/>
+    <property name="dist.dir" location="dist"/>
+    <property name="lib.dir" location="lib"/>
+    <property name="release.dir" location="${dist.dir}"/>
+    <property name="release.app.dir" location="${release.dir}/app"/>
+    <property name="release.lib.dir" location="${release.dir}/lib"/>
+    <property name="release.tbtools.lib.dir" location="${release.dir}/tbtools/lib"/>
+    <property name="release.runtime.dir" location="${release.dir}/runtime"/>
+    <property name="toolchain.java.home" location="toolchain/jdk"/>
+    <property name="legacy.tools.dir" location="SimpleGenomeHub/bin/tools"/>
+    <property name="preferred.tools.dir" location="bin/tools"/>
+    
+    <!-- Classpath for compilation -->
+    <path id="compile.classpath">
+        <fileset dir="${lib.dir}">
+            <include name="**/*.jar"/>
+        </fileset>
+    </path>
+    
+    <!-- Classpath for testing -->
+    <path id="test.classpath">
+        <path refid="compile.classpath"/>
+        <pathelement location="${build.classes.dir}"/>
+        <pathelement location="${build.test.classes.dir}"/>
+    </path>
+    
+    <!-- Initialize build directories -->
+    <target name="init">
+        <mkdir dir="${build.classes.dir}"/>
+        <mkdir dir="${build.test.classes.dir}"/>
+        <mkdir dir="${dist.dir}"/>
+    </target>
+
+    <target name="prepare-release">
+        <delete dir="${release.app.dir}" failonerror="false"/>
+        <delete dir="${release.dir}/bin" failonerror="false"/>
+        <delete dir="${release.dir}/demo" failonerror="false"/>
+        <delete dir="${release.lib.dir}" failonerror="false"/>
+        <delete dir="${release.runtime.dir}" failonerror="false"/>
+        <delete dir="${release.dir}/tbtools" failonerror="false"/>
+        <delete file="${release.tbtools.lib.dir}/TBtools_JRE1.6.jar" failonerror="false"/>
+        <delete file="${release.dir}/run.bat" failonerror="false"/>
+        <delete file="${release.dir}/run.ps1" failonerror="false"/>
+        <delete file="${release.dir}/run.sh" failonerror="false"/>
+        <delete file="${release.dir}/README.txt" failonerror="false"/>
+        <delete file="${release.dir}/README.md" failonerror="false"/>
+
+        <mkdir dir="${release.dir}"/>
+        <mkdir dir="${release.app.dir}"/>
+        <mkdir dir="${release.lib.dir}"/>
+        <mkdir dir="${release.tbtools.lib.dir}"/>
+        <mkdir dir="${release.dir}/bin/tools"/>
+    </target>
+
+    <condition property="local.javac.available">
+        <available file="${toolchain.java.home}/bin/javac.exe"/>
+    </condition>
+
+    <target name="check-toolchain-javac">
+        <fail unless="local.javac.available"
+              message="Local JDK toolchain not found: ${toolchain.java.home}\bin\javac.exe"/>
+    </target>
+    
+    <!-- Clean build artifacts -->
+    <target name="clean">
+        <delete dir="${build.dir}"/>
+        <delete dir="${dist.dir}"/>
+    </target>
+    
+    <!-- Compile main source code -->
+    <target name="compile" depends="init,check-toolchain-javac">
+        <javac srcdir="${src.dir}" 
+               destdir="${build.classes.dir}"
+               classpathref="compile.classpath"
+               includeantruntime="false"
+               encoding="UTF-8"
+               source="11"
+               target="11"
+               fork="true"
+               executable="${toolchain.java.home}/bin/javac.exe">
+            <compilerarg value="-Xlint:unchecked"/>
+            <compilerarg value="-Xlint:deprecation"/>
+        </javac>
+    </target>
+    
+    <!-- Compile test source code -->
+    <target name="compile-test" depends="compile,check-toolchain-javac">
+        <javac srcdir="${test.src.dir}" 
+               destdir="${build.test.classes.dir}"
+               classpathref="test.classpath"
+               includeantruntime="false"
+               encoding="UTF-8"
+               source="11"
+               target="11"
+               fork="true"
+               executable="${toolchain.java.home}/bin/javac.exe">
+            <compilerarg value="-Xlint:unchecked"/>
+            <compilerarg value="-Xlint:deprecation"/>
+        </javac>
+    </target>
+    
+    <!-- Run unit tests -->
+    <target name="test" depends="compile-test">
+        <junit printsummary="yes" haltonfailure="no" fork="yes">
+            <classpath refid="test.classpath"/>
+            <formatter type="plain"/>
+            <batchtest todir="${build.dir}">
+                <fileset dir="${test.src.dir}">
+                    <include name="**/*Test.java"/>
+                </fileset>
+            </batchtest>
+        </junit>
+    </target>
+    
+    <!-- Create JAR file -->
+    <target name="jar" depends="compile">
+        <jar jarfile="${dist.dir}/SimpleGenomeHub.jar" basedir="${build.classes.dir}">
+            <manifest>
+                <attribute name="Main-Class" value="simplegenomehub.gui.SimpleGenomeHubMainPanel"/>
+                <attribute name="Implementation-Title" value="SimpleGenomeHub"/>
+                <attribute name="Implementation-Version" value="1.0"/>
+                <attribute name="Implementation-Vendor" value="SimpleGenomeHub Team"/>
+            </manifest>
+        </jar>
+    </target>
+    
+    <condition property="runtime.source.dir" value="${toolchain.java.home}" else="${env.JAVA_HOME}">
+        <available file="${toolchain.java.home}/bin/java.exe"/>
+    </condition>
+
+    <condition property="bundle.runtime.available">
+        <available file="${runtime.source.dir}/bin/java.exe"/>
+    </condition>
+
+    <condition property="tools.source.dir" value="${preferred.tools.dir}" else="${legacy.tools.dir}">
+        <available file="${preferred.tools.dir}" type="dir"/>
+    </condition>
+
+    <condition property="tools.source.available">
+        <available file="${tools.source.dir}" type="dir"/>
+    </condition>
+
+    <target name="bundle-runtime" depends="prepare-release,jar" if="bundle.runtime.available">
+        <mkdir dir="${release.runtime.dir}"/>
+        <copy todir="${release.runtime.dir}/bin">
+            <fileset dir="${runtime.source.dir}/bin"/>
+        </copy>
+        <copy todir="${release.runtime.dir}/conf" failonerror="false">
+            <fileset dir="${runtime.source.dir}/conf" erroronmissingdir="false"/>
+        </copy>
+        <copy todir="${release.runtime.dir}/legal" failonerror="false">
+            <fileset dir="${runtime.source.dir}/legal" erroronmissingdir="false"/>
+        </copy>
+        <copy todir="${release.runtime.dir}/lib">
+            <fileset dir="${runtime.source.dir}/lib"/>
+        </copy>
+        <copy file="${runtime.source.dir}/release" todir="${release.runtime.dir}" failonerror="false"/>
+    </target>
+
+    <target name="bundle-runtime-skipped" depends="prepare-release,jar" unless="bundle.runtime.available">
+        <echo message="No local toolchain found at ${toolchain.java.home} and JAVA_HOME is not usable. Skipping bundled runtime copy."/>
+    </target>
+
+    <!-- Create distribution with dependencies -->
+    <target name="dist" depends="bundle-runtime,bundle-runtime-skipped">
+        <copy file="${dist.dir}/SimpleGenomeHub.jar" tofile="${release.app.dir}/SimpleGenomeHub.jar"/>
+
+        <copy todir="${release.lib.dir}">
+            <fileset dir="${lib.dir}">
+                <include name="**/*.jar"/>
+                <exclude name="TBtools_JRE1.6.jar"/>
+            </fileset>
+        </copy>
+
+        <copy file="${lib.dir}/TBtools_JRE1.6.jar" tofile="${release.tbtools.lib.dir}/TBtools_JRE1.6.jar"/>
+
+        <copy todir="${release.dir}/bin/tools" failonerror="false">
+            <fileset dir="${tools.source.dir}" erroronmissingdir="false"/>
+        </copy>
+
+        <echo message="Using external tool payload from: ${tools.source.dir}"/>
+        
+        <!-- Create run script for Windows -->
+        <echo file="${release.dir}/run.bat"><![CDATA[@echo off
+setlocal
+set "SCRIPT_DIR=%~dp0"
+pushd "%SCRIPT_DIR%" >nul
+set "APP_HOME=%CD%"
+set "JAVA_EXE="
+if exist "%APP_HOME%\runtime\bin\java.exe" set "JAVA_EXE=%APP_HOME%\runtime\bin\java.exe"
+if not defined JAVA_EXE if defined JAVA_HOME if exist "%JAVA_HOME%\bin\java.exe" set "JAVA_EXE=%JAVA_HOME%\bin\java.exe"
+if not defined JAVA_EXE set "JAVA_EXE=java"
+if exist "%APP_HOME%\bin\tools" set "PATH=%APP_HOME%\bin\tools;%PATH%"
+"%JAVA_EXE%" "-Dsimplegenomehub.app.home=%APP_HOME%" -cp "app\SimpleGenomeHub.jar;lib/*;tbtools/lib/*" simplegenomehub.gui.SimpleGenomeHubMainPanel
+set "EXIT_CODE=%ERRORLEVEL%"
+popd >nul
+if not "%EXIT_CODE%"=="0" (
+    echo.
+    echo SimpleGenomeHub exited with code %EXIT_CODE%.
+    echo Check runtime\ and lib\ if startup fails.
+    pause
+)
+exit /b %EXIT_CODE%
+]]></echo>
+
+        <!-- Create run script for PowerShell -->
+        <echo file="${release.dir}/run.ps1"><![CDATA[$ErrorActionPreference = "Stop"
+$distDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$javaExe = Join-Path $distDir "runtime\bin\java.exe"
+
+if (-not (Test-Path $javaExe)) {
+    if ($env:JAVA_HOME -and (Test-Path (Join-Path $env:JAVA_HOME "bin\java.exe"))) {
+        $javaExe = Join-Path $env:JAVA_HOME "bin\java.exe"
+    } else {
+        $javaExe = "java"
+    }
+}
+
+Push-Location $distDir
+try {
+    if (Test-Path (Join-Path $distDir "bin\tools")) {
+        $env:Path = (Join-Path $distDir "bin\tools") + ";" + $env:Path
+    }
+    & $javaExe "-Dsimplegenomehub.app.home=$distDir" -cp "app\SimpleGenomeHub.jar;lib/*;tbtools/lib/*" simplegenomehub.gui.SimpleGenomeHubMainPanel
+    exit $LASTEXITCODE
+}
+finally {
+    Pop-Location
+}
+]]></echo>
+        
+        <!-- Create run script for Unix/Linux -->
+        <echo file="${release.dir}/run.sh"><![CDATA[#!/bin/bash
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+if [ -x "$SCRIPT_DIR/runtime/bin/java" ]; then
+    JAVA_EXE="$SCRIPT_DIR/runtime/bin/java"
+elif [ -n "${JAVA_HOME:-}" ] && [ -x "$JAVA_HOME/bin/java" ]; then
+    JAVA_EXE="$JAVA_HOME/bin/java"
+else
+    JAVA_EXE="java"
+fi
+if [ -d "$SCRIPT_DIR/bin/tools" ]; then
+    export PATH="$SCRIPT_DIR/bin/tools:$PATH"
+fi
+exec "$JAVA_EXE" "-Dsimplegenomehub.app.home=$SCRIPT_DIR" -cp "app/SimpleGenomeHub.jar:lib/*:tbtools/lib/*" simplegenomehub.gui.SimpleGenomeHubMainPanel
+]]></echo>
+        <chmod file="${release.dir}/run.sh" perm="755"/>
+
+        <echo file="${release.dir}/README.txt"><![CDATA[SimpleGenomeHub distribution
+
+Contents
+- app/SimpleGenomeHub.jar
+- lib/ (general dependency jars)
+- tbtools/lib/TBtools_JRE1.6.jar
+- bin/tools/ (external executables copied from TBtools bin)
+- runtime/ (bundled Java 11 runtime when available)
+- run.bat / run.ps1 / run.sh launch scripts
+
+Requirements
+- No system Java is required if runtime/ is present
+- If runtime/ is missing, Java 11 or newer must be available
+- For local builds, copy a JDK-like Java 11 toolchain into the project root toolchain/jdk/ before running ant
+- The application stores user configuration under the current user's home directory
+- The launcher sets simplegenomehub.app.home to this folder for future exe compatibility
+- The bundled external tools are Windows binaries, so this packaged release targets Windows
+
+Usage on Windows
+- Double-click run.bat
+- Or from PowerShell: .\run.ps1
+]]></echo>
+
+        <echo file="${release.dir}/README.md"><![CDATA[# SimpleGenomeHub Release Package
+
+This directory is the current Windows release package of SimpleGenomeHub.
+
+## Contents
+
+```text
+dist/
+  app/
+    SimpleGenomeHub.jar
+  lib/
+  tbtools/
+    lib/
+      TBtools_JRE1.6.jar
+  bin/
+    tools/
+  runtime/
+  run.bat
+  run.ps1
+  run.sh
+```
+
+## What Each Folder Is For
+
+- `app/`: main application jar built from the local `simplegenomehub` source code
+- `lib/`: Java runtime dependencies used by SimpleGenomeHub
+- `tbtools/lib/`: TBtools-related jar dependency used in integration points
+- `bin/tools/`: bundled external Windows executables such as BLAST, DIAMOND, IQ-TREE and related DLL files
+- `runtime/`: bundled Java 11 runtime used by the launcher
+
+## How To Run
+
+### Windows
+
+Double-click `run.bat`
+
+Or start from PowerShell:
+
+```powershell
+.\run.ps1
+```
+
+## Runtime Requirement
+
+- No system Java installation is required if `runtime/` exists
+- If `runtime/` is removed, Java 11 or newer must be available
+
+## Important Notes
+
+- This packaged release targets Windows because `bin/tools/` contains Windows executables
+- The launcher automatically adds `bin/tools/` to `PATH` at startup
+- User configuration is stored under `%USERPROFILE%\.SimpleGenomeHub\`
+- Species/genome project data is stored in the directory configured by the user inside the application
+
+## Source Boundary
+
+The main program jar in `app/SimpleGenomeHub.jar` is built from the local `src/simplegenomehub/` codebase.
+
+This release package also contains third-party binary dependencies, including:
+
+- TBtools-related jar dependency
+- external command-line tools from the TBtools toolchain
+- bundled Java runtime
+
+These are packaged as runtime dependencies, not merged source code.
+]]></echo>
+        <delete file="${dist.dir}/SimpleGenomeHub.jar" failonerror="false"/>
+    </target>
+    
+    <!-- Default target -->
+    <target name="default" depends="compile,test,jar"/>
+    
+    <!-- Development target - compile and run tests -->
+    <target name="dev" depends="clean,compile,compile-test,test"/>
+    
+    <!-- Full build target -->
+    <target name="all" depends="clean,compile,compile-test,test,dist"/>
+    
+</project>
