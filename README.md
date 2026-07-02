@@ -16,6 +16,9 @@ The current project includes work around:
 - genome comparison and synteny-related workflows
 - expression matrix import, browsing, and visualization
 
+For details, please refer to:
+Example Workflow.pdf
+
 ## Repository Contents
 
 The current minimal source upload is expected to contain:
