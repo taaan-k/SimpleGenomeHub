@@ -4,7 +4,7 @@ SimpleGenomeHub is a Java 11 desktop application for genome and annotation manag
 
 # USE
 
-A compressed package that requires no dependencies and can be used immediately after extraction is provided under Releases.
+A compressed package (SimpleGenomeHub v.0.2) that requires no dependencies and can be used immediately after extraction is provided under Releases.
 
 For details and example operations, please refer to EXample Workflow.pdf
 
