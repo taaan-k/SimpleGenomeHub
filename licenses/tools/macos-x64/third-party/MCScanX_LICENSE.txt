@@ -1,0 +1,85 @@
+﻿MCScanX License
+===============
+
+Tool Name: MCScanX (Multiple Collinearity Scan toolkit)
+License Type: Free for academic use, citation required
+Copyright Holder: Yong Wang, et al.
+Official Website: http://chibba.pgml.uga.edu/mcscan2/
+
+License Statement
+----------
+
+MCScanX is free software that can be used free of charge for academic and non-commercial purposes. The authors have not specified a specific open-source license but allow free use with proper citation of the original literature.
+
+Usage Conditions
+--------
+
+MCScanX can be:
+- Freely used for academic research
+- Freely used for educational purposes
+- Modified to adapt to research needs
+- Distributed with modified versions (maintaining original citations)
+
+Commercial Use Restrictions
+------------
+
+For commercial use of MCScanX, please contact the authors for permission.
+
+Citation Requirements
+--------
+
+In any research results using MCScanX, the following literature must be cited:
+
+Wang Y, Tang X, Cheng Z, Xu C, Liu J, Luo J. (2012)
+"MCScanX: a toolkit for detection and evolutionary analysis of gene synteny and collinearity."
+Nucleic Acids Res 40(7):e49.
+
+Technical Notes
+--------
+
+MCScanX is a toolkit for detecting and analyzing gene synteny and collinearity,
+with main functions:
+
+1. MCScanX - Core program for detecting collinearity blocks
+2. duplicate_gene_classifier - Gene duplication type classifier
+3. detect_collinearity_within_species - Within-species collinearity detection
+4. detect_collinearity_between_species - Between-species collinearity detection
+5. add_ka_and_ks_to_collinearity - Add Ka/Ks calculations
+6. plot_collinearity - Collinearity visualization
+
+Application Areas
+--------
+
+- Plant genome evolution research
+- Gene family expansion analysis
+- Whole-genome duplication event detection
+- Comparative genomics analysis
+- Phylogenomic analysis
+
+Data Format Requirements
+------------
+
+Input files:
+1. GFF format genome annotation files
+2. BLASTP or BLASTN alignment results
+
+Output files:
+1. Collinearity block files
+2. Gene duplication classification results
+3. Ka/Ks calculation results
+4. Visualization chart data
+
+Disclaimer
+--------
+
+This software is provided "as is" without any express or implied warranty. The authors assume no liability for any damages resulting from the use of this software.
+
+Contact Information
+--------
+
+For questions about MCScanX or commercial use requests, please contact:
+Yong Wang
+Department of Genetics, University of Georgia
+Email: [Please check official website for latest contact information]
+
+Last Updated: February 15, 2026

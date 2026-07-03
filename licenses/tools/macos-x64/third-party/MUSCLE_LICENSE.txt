@@ -1,0 +1,70 @@
+﻿MUSCLE License
+==============
+
+Tool Name: MUSCLE (Multiple Sequence Comparison by Log-Expectation)
+Version: 3.8.31 and MUSCLE5
+License Type: Public Domain
+Copyright Holder: Robert C. Edgar
+Official Website: https://www.drive5.com/muscle/
+
+License Statement
+-----------------
+
+MUSCLE software has been released into the public domain by Robert C. Edgar. This means the software is not subject to copyright restrictions and can be freely used, modified, and distributed.
+
+Usage Conditions
+----------------
+
+MUSCLE can be freely:
+- Used: for any purpose, including commercial purposes
+- Modified: source code can be modified
+- Distributed: can be freely copied and distributed
+- Used to create derivative works: new software can be based on MUSCLE
+
+No attribution requirements, no copyright preservation requirements.
+
+Included Tools
+--------------
+
+MUSCLE tools included in TBtools:
+- muscle.exe - MUSCLE version 3.8.31
+- muscle5.exe - MUSCLE version 5
+
+Citation Information
+--------------------
+
+When using MUSCLE in academic research, please cite the following literature:
+
+For MUSCLE 3.8.31:
+
+Edgar RC. (2004)
+"MUSCLE: multiple sequence alignment with high accuracy and high throughput."
+Nucleic Acids Res 32(5):1792-1797.
+
+For MUSCLE 5:
+
+Edgar RC. (2022)
+"MUSCLE v5 enables improved estimates of phylogenetic tree support."
+Mol Biol Evol 39(9):msac175.
+
+Technical Notes
+---------------
+
+MUSCLE is a high-performance multiple sequence alignment tool suitable for:
+- Protein sequence alignment
+- DNA/RNA sequence alignment
+- Large-scale sequence dataset alignment
+- Pre-processing for phylogenetic analysis
+
+MUSCLE 5 improvements over version 3.8.31:
+- Faster speed
+- Higher accuracy
+- Better memory efficiency
+- Improved algorithm implementation
+
+Disclaimer
+----------
+
+This software is provided "as is" without any express or implied warranty. The author assumes no liability for any damages resulting from the use of this software.
+
+Last Updated: February 15, 2026

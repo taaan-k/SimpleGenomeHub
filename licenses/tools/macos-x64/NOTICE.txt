@@ -1,0 +1,102 @@
+﻿TBtools User Notice
+===================
+
+IMPORTANT: Please read this notice file carefully to understand your rights and obligations when using the TBtools software package.
+
+Software Package Contents
+--------------------------
+
+TBtools is a software platform that integrates multiple bioinformatics tools, including the following main components:
+
+1. **Core Software**: TBtools main program
+2. **Third-Party Tools**: 32 bioinformatics analysis tools
+3. **Runtime Libraries**: Cygwin compatibility layer and related library files
+
+License Compliance Requirements
+-------------------------------
+
+When using the TBtools software package, you must comply with the following license requirements:
+
+**Academic Use:**
+- All tools can be used free of charge for academic research
+- When publishing papers, you must properly cite relevant tools (see citation list)
+- It is recommended to mention the tool versions used in the methods section of papers
+
+**Commercial Use:**
+- BLAST+ and MUSCLE can be freely used for commercial purposes
+- MEME Suite and ViennaRNA Package allow commercial use
+- GPL licensed tools (DIAMOND, IQ-TREE) require special attention
+- Commercial use of MCScanX requires permission from the original author
+
+**Distribution Requirements:**
+- When distributing TBtools, you must include all license files
+- Do not delete or modify any copyright notices
+- Distribution of GPL components must follow GPL copyleft requirements
+
+Special Considerations
+---------------------
+
+1. **GPL Copyleft Effects:**
+   - DIAMOND, IQ-TREE use GPL licenses
+   - Derivative works deeply integrated with these tools may need to be released under GPL
+   - Cygwin runtime libraries may also affect license compatibility
+
+2. **Citation Requirements:**
+   - MCScanX: Must cite Wang et al. (2012)
+   - ViennaRNA Package: Recommended to cite Lorenz et al. (2011)
+   - Other tools: Academic integrity requires proper citation
+
+3. **Version Management:**
+   - This license documentation is based on tool versions from February 2026
+   - Tool updates may change license terms
+   - It is recommended to regularly check for license updates
+
+Quick Citation Format
+---------------------
+
+When citing tools used by TBtools in papers, the following format is recommended:
+
+"Analysis used TBtools software [citation], with sequence alignment using BLAST+ [Camacho et al., 2009], 
+phylogenetic analysis using IQ-TREE [Nguyen et al., 2015], and gene collinearity analysis using MCScanX [Wang et al., 2012]."
+
+For the complete citation list, see: licenses/THIRD_PARTY_LICENSES.txt
+
+Technical Support and Feedback
+------------------------------
+
+For the following issues, please contact the appropriate parties:
+
+1. **TBtools Core Functions**: Contact TBtools development team
+2. **Third-Party Tool Issues**: Contact original authors of each tool
+3. **License Consultation**: Consult legal professionals
+4. **Commercial Use Licenses**: Contact relevant tool copyright holders
+
+Disclaimer
+----------
+
+This software package is provided "as is" without any express or implied warranty. The developers assume no liability for any direct or indirect damages caused by using this software package.
+
+For disclaimer statements of individual third-party tools, please refer to their respective license files.
+
+File Inventory
+--------------
+
+This software package includes the following license-related files:
+
+- LICENSE.txt - Main license file
+- NOTICE.txt - This user notice file
+- licenses/THIRD_PARTY_LICENSES.txt - Third-party tools license index
+- licenses/third-party/ - Detailed license files for each third-party tool
+- licenses/runtime/ - Runtime library license files
+
+Update Log
+----------
+
+Version 1.0 (2026-02-15)
+- Initial version
+- Includes license information for all third-party tools
+- Established complete license documentation system
+
+Thank you for your cooperation in ensuring the healthy development of the open source software ecosystem!
+
+Last Updated: February 15, 2026

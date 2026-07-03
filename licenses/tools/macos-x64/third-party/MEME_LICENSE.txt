@@ -1,0 +1,98 @@
+﻿MEME Suite License
+==================
+
+Tool Name: MEME Suite (Multiple Em for Motif Elicitation)
+License Type: BSD 3-Clause License
+Copyright Holder: Regents of the University of California
+Official Website: https://meme-suite.org/
+
+BSD 3-Clause License Full Text
+------------------------------
+
+Copyright (c) [Year], Regents of the University of California
+All rights reserved.
+
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions are met:
+
+ 1. Redistributions of source code must retain the above copyright notice,
+    this list of conditions and the following disclaimer.
+
+ 2. Redistributions in binary form must reproduce the above copyright notice,
+    this list of conditions and the following disclaimer in the documentation
+    and/or other materials provided with the distribution.
+
+ 3. Neither the name of the copyright holder nor the names of its
+    contributors may be used to endorse or promote products derived from
+    this software without specific prior written permission.
+
+ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+License Features
+---------------
+
+The BSD 3-Clause license is a permissive open-source license that allows:
+- Commercial use
+- Modification
+- Distribution
+- Private use
+
+The only obligations are:
+- Preserve copyright notice
+- Preserve license text
+- Do not use copyright holder's name for promotion
+
+Included Tools
+--------------
+
+MEME Suite tools included in TBtools:
+- meme.exe - Motif discovery tool
+- mast.exe - Motif search tool
+
+Citation Information
+--------------------
+
+When using MEME Suite in academic research, please cite the following literature:
+
+For MEME:
+
+Bailey TL, Boden M, Buske FA, Frith M, Grant CE, Clementi L, Ren J, Li WW, Noble WS. (2009)
+"MEME SUITE: tools for motif discovery and searching."
+Nucleic Acids Res 37(Web Server issue):W202-208.
+
+For MAST:
+
+Bailey TL, Gribskov M. (1998)
+"Combining evidence using p-values: application to sequence homology searches."
+Bioinformatics 14(1):48-54.
+
+Technical Notes
+---------------
+
+MEME Suite is a toolkit for motif analysis with main functions:
+- Discover conserved motifs from a set of sequences (MEME)
+- Search known motifs in sequence databases (MAST)
+- Motif enrichment analysis
+- Motif visualization and annotation
+
+MEME Suite has wide applications in:
+- Transcription factor binding site identification
+- Protein domain analysis
+- Gene regulatory network research
+- Evolutionary analysis
+
+Disclaimer
+----------
+
+This software is provided "as is" without any express or implied warranty. The Regents of the University of California assume no liability for any damages resulting from the use of this software.
+
+Last Updated: February 15, 2026

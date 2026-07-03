@@ -1,0 +1,120 @@
+﻿TBtools Third-Party Tools License Index
+========================================
+
+This document provides an overview and quick reference for the licenses of all third-party tools included in the TBtools software package.
+
+License Type Statistics
+----------------------
+
+Public Domain: 2 tools
+GNU GPL v3: 1 tool
+GNU GPL v2: 1 tool
+BSD 3-Clause: 2 tools
+Free Use (Citation Required): 1 tool
+Custom License (Free Use): 1 tool
+GNU GPL (Runtime Library): 1 component
+
+Detailed Tool List
+-----------------
+
+1. **BLAST+ Tool Suite**
+   - Version: 2.12.0+
+   - License: Public Domain
+   - Copyright: U.S. National Center for Biotechnology Information (NCBI)
+   - File: licenses/third-party/BLAST_LICENSE.txt
+   - Included Tools: blastn, blastp, blastx, tblastn, tblastx, makeblastdb, blast_formatter, blastdbcmd
+
+2. **DIAMOND**
+   - Version: 2.1.8
+   - License: GNU GPL v3
+   - Copyright: Benjamin Buchfink
+   - File: licenses/third-party/DIAMOND_LICENSE.txt
+   - Note: Has GPL copyleft effects
+
+3. **MUSCLE / MUSCLE5**
+   - Version: 3.8.31 / 5.x
+   - License: Public Domain
+   - Copyright: Robert C. Edgar
+   - File: licenses/third-party/MUSCLE_LICENSE.txt
+
+4. **HMMER Tool Suite**
+   - License: BSD 3-Clause
+   - Copyright: Howard Hughes Medical Institute
+   - Author: Sean R. Eddy
+   - File: licenses/third-party/HMMER_LICENSE.txt
+   - Included Tools: hmmpress, hmmsearch
+   - Note: Permissive license, commercial friendly
+
+5. **IQ-TREE**
+   - License: GNU GPL v2
+   - Copyright: Bui Quang Minh, et al.
+   - File: licenses/third-party/IQTREE_LICENSE.txt
+   - Note: Has GPL copyleft effects
+
+6. **MEME Suite**
+   - License: BSD 3-Clause
+   - Copyright: Regents of the University of California
+   - File: licenses/third-party/MEME_LICENSE.txt
+   - Included Tools: meme, mast
+   - Note: Permissive license, commercial friendly
+
+7. **MCScanX**
+   - License: Free Use, Citation Required
+   - Copyright: Yong Wang, et al.
+   - File: licenses/third-party/MCScanX_LICENSE.txt
+   - Note: Free for academic use, commercial use requires author permission
+
+8. **ViennaRNA Package**
+   - License: Custom License (Free Use)
+   - Copyright: University of Vienna
+   - File: licenses/third-party/VIENNA_LICENSE.txt
+   - Included Tools: RNAfold, RNAplot
+   - Note: Citation of original literature required
+
+9. **Cygwin Runtime Library**
+   - License: GNU GPL
+   - Copyright: Red Hat, Inc. and others
+   - File: licenses/runtime/CYGWIN_LICENSE.txt
+   - Note: May affect overall license compatibility
+
+License Compatibility Guide
+--------------------------
+
+**Commercial Use Friendly:**
+- BLAST+ (Public Domain)
+- MUSCLE (Public Domain)
+- MEME Suite (BSD 3-Clause)
+- HMMER (BSD 3-Clause)
+- ViennaRNA Package (Custom, allows commercial use)
+
+**GPL Copyleft Awareness Required:**
+- DIAMOND (GPL v3)
+- IQ-TREE (GPL v2)
+- Cygwin Runtime Library (GPL)
+
+**Academic Citation Requirements:**
+- MCScanX (Mandatory citation)
+- ViennaRNA Package (Recommended citation)
+- All tools (Academic integrity requires proper citation)
+
+Quick Reference List
+--------------------
+
+Suggested academic citation format:
+
+1. BLAST+: Camacho C, et al. (2009) BMC Bioinformatics 10:421.
+2. DIAMOND: Buchfink B, et al. (2021) Nat Biotechnol 39(12):1473-1476.
+3. MUSCLE: Edgar RC. (2004) Nucleic Acids Res 32(5):1792-1797.
+4. HMMER: Eddy SR. (2011) PLoS Comput Biol 7(10):e1002195.
+5. IQ-TREE: Nguyen LT, et al. (2015) Mol Biol Evol 32(1):268-274.
+6. MEME Suite: Bailey TL, et al. (2009) Nucleic Acids Res 37(Web Server issue):W202-208.
+7. MCScanX: Wang Y, et al. (2012) Nucleic Acids Res 40(7):e49.
+8. ViennaRNA: Lorenz R, et al. (2011) Algorithms Mol Biol 6:26.
+
+Legal Disclaimer
+---------------
+
+This index file is for reference only and does not constitute legal advice. Please read the complete license text for any tool before use. If you have questions, please consult a legal professional.
+
+Last Updated: February 15, 2026
+Version: 1.0

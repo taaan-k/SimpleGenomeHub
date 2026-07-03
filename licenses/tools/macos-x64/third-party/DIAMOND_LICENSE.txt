@@ -1,0 +1,64 @@
+﻿DIAMOND License
+===============
+
+Tool Name: DIAMOND (Double Index Alignment of Next-generation sequencing Data)
+Version: 2.1.8
+License Type: GNU General Public License v3.0 (GPL v3)
+Copyright Holder: Benjamin Buchfink
+Official Website: https://github.com/bbuchfink/diamond
+
+License Statement
+-----------------
+
+DIAMOND is licensed under the GNU General Public License v3.0. This is a copyleft license that ensures all users have the freedom to use, modify, and distribute the software while requiring derivative works to use the same license.
+
+Usage Conditions
+----------------
+
+You have the right to:
+1. Freely run the program for any purpose
+2. Freely study how the program works and modify it
+3. Freely redistribute copies
+4. Freely distribute modified versions
+
+Obligations and Restrictions
+----------------------------
+
+If you distribute software based on DIAMOND (including modified versions), you must:
+1. Prominently publish appropriate copyright notices and disclaimer statements in each copy
+2. Preserve all license and warranty disclaimer statements
+3. Provide recipients with the complete GPL v3 license
+4. If you modify the program, attach prominent notices stating the changes
+
+GPL Copyleft
+-----------
+
+DIAMOND uses GPL v3 license, which means:
+- Any derivative work containing DIAMOND code must also use GPL v3 license
+- You cannot integrate DIAMOND into proprietary software
+- When distributing software based on DIAMOND, you must provide source code
+
+Citation Information
+--------------------
+
+When using DIAMOND in academic research, please cite the following literature:
+
+Buchfink B, Reuter K, Drost HG. (2021)
+"Sensitive protein alignment at the speed of BLAST."
+Nat Biotechnol 39(12):1473-1476.
+
+And the original publication:
+
+Buchfink B, Xie C, Huson DH. (2015)
+"Fast and sensitive protein alignment using DIAMOND."
+Nat Methods 12(1):59-60.
+
+Disclaimer
+----------
+
+This program is provided "as is" without any express or implied warranty. To the extent permitted by applicable law, the author or copyright holder assumes no liability for any issues with the program.
+
+For the complete GPL v3 license text, please visit:
+https://www.gnu.org/licenses/gpl-3.0.html
+
+Last Updated: February 15, 2026

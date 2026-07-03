@@ -1,0 +1,80 @@
+﻿TBtools Software Package License Declaration
+============================================
+
+TBtools is a software platform that integrates multiple bioinformatics tools. This file declares the license information for TBtools and its included third-party tools.
+
+TBtools software itself follows the following license:
+[Please add TBtools's own license information here]
+
+Third-Party Tools License Overview
+-----------------------------------
+
+This software package includes the following third-party tools, each subject to their respective open source licenses:
+
+1. BLAST+ Tool Suite (Version 2.12.0+)
+   - License Type: Public Domain
+   - Copyright Holder: U.S. National Center for Biotechnology Information (NCBI)
+   - Detailed License: See licenses/third-party/BLAST_LICENSE.txt
+
+2. DIAMOND (Version 2.1.8)
+   - License Type: GNU General Public License v3.0 (GPL v3)
+   - Copyright Holder: Benjamin Buchfink
+   - Detailed License: See licenses/third-party/DIAMOND_LICENSE.txt
+
+3. MUSCLE (Version 3.8.31) and MUSCLE5
+   - License Type: Public Domain
+   - Copyright Holder: Robert C. Edgar
+   - Detailed License: See licenses/third-party/MUSCLE_LICENSE.txt
+
+4. HMMER Tool Suite (hmmpress, hmmsearch)
+   - License Type: BSD 3-Clause License
+   - Copyright Holder: Howard Hughes Medical Institute
+   - Detailed License: See licenses/third-party/HMMER_LICENSE.txt
+
+5. IQ-TREE
+   - License Type: GNU General Public License v2.0 (GPL v2)
+   - Copyright Holder: Bui Quang Minh, Nguyen Lam Tung, Olga Chernomor, et al.
+   - Detailed License: See licenses/third-party/IQTREE_LICENSE.txt
+
+6. MEME Suite (meme, mast)
+   - License Type: BSD 3-Clause License
+   - Copyright Holder: Regents of the University of California
+   - Detailed License: See licenses/third-party/MEME_LICENSE.txt
+
+7. MCScanX
+   - License Type: Free Use, Citation Required
+   - Copyright Holder: Yong Wang, et al.
+   - Detailed License: See licenses/third-party/MCScanX_LICENSE.txt
+
+8. ViennaRNA Package (RNAfold, RNAplot)
+   - License Type: Custom License (Free Use)
+   - Copyright Holder: University of Vienna
+   - Detailed License: See licenses/third-party/VIENNA_LICENSE.txt
+
+9. Cygwin Runtime Library
+   - License Type: GNU General Public License (GPL)
+   - Copyright Holder: Red Hat, Inc. et al.
+   - Detailed License: See licenses/runtime/CYGWIN_LICENSE.txt
+
+License Compatibility Statement
+-------------------------------
+
+Different components in the TBtools software package follow different open source licenses. When using and distributing this software package, please ensure compliance with all applicable license terms.
+
+Special Reminders:
+- GPL licensed tools have copyleft effects; derivative works using these tools must be released under GPL license
+- Public domain tools can be freely used, modified, and distributed
+- BSD licensed tools allow free use while preserving copyright statements
+
+Complete License Texts
+---------------------
+
+Complete license texts for all third-party tools can be found in the licenses directory. Please read the relevant license terms carefully before use.
+
+Contact Information
+------------------
+
+For questions regarding licenses, please contact:
+[Please add contact information here]
+
+Last Updated: February 15, 2026

@@ -1,0 +1,74 @@
+﻿IQ-TREE License
+================
+
+Tool Name: IQ-TREE (Efficient phylogenetic software by maximum likelihood)
+License Type: GNU General Public License v2.0 (GPL v2)
+Copyright Holder: Bui Quang Minh, Nguyen Lam Tung, Olga Chernomor, et al.
+Official Website: http://www.iqtree.org/
+
+GNU GPL v2 License Summary
+-------------------------
+
+IQ-TREE is released under the GNU General Public License v2.0. This is a copyleft license that ensures all users have the freedom to use, modify, and distribute the software while requiring derivative works to use the same license.
+
+Usage Conditions
+----------------
+
+You have the right to:
+1. Freely run the program for any purpose
+2. Freely study how the program works and modify it
+3. Freely redistribute copies
+4. Freely distribute modified versions
+
+Obligations and Restrictions
+----------------------------
+
+If you distribute software based on IQ-TREE (including modified versions), you must:
+1. Prominently publish appropriate copyright notices in each copy
+2. Preserve all license and warranty disclaimer statements
+3. Provide recipients with the complete GPL v2 license
+4. If you modify the program, attach prominent notices stating the changes
+
+GPL Copyleft
+-----------
+
+IQ-TREE uses GPL v2 license, which means:
+- Any derivative work containing IQ-TREE code must also use GPL v2 license
+- You cannot integrate IQ-TREE into proprietary software
+- When distributing software based on IQ-TREE, you must provide source code
+
+Citation Information
+--------------------
+
+When using IQ-TREE in academic research, please cite the following literature:
+
+Nguyen LT, Schmidt HA, von Haeseler A, Minh BQ. (2015)
+"IQ-TREE: a fast and effective stochastic algorithm for estimating maximum-likelihood phylogenies."
+Mol Biol Evol 32(1):268-274.
+
+And the model selection method:
+
+Kalyaanamoorthy S, Minh BQ, Wong TKF, von Haeseler A, Jermin LS. (2017)
+"ModelFinder: fast model selection for accurate phylogenetic estimates."
+Nat Methods 14(6):587-589.
+
+Technical Notes
+---------------
+
+IQ-TREE is an efficient and accurate phylogenetic analysis software with main features:
+- Maximum likelihood phylogenetic tree inference
+- Fast model selection (ModelFinder)
+- Ultra-fast bootstrap support (UFBoot2)
+- Support for DNA, protein, and codon data
+- Support for partition and mixture models
+- Support for large-scale dataset analysis
+
+Disclaimer
+----------
+
+This program is provided "as is" without any express or implied warranty. To the extent permitted by applicable law, the authors assume no liability for any issues with the program.
+
+For the complete GPL v2 license text, please visit:
+https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+
+Last Updated: February 15, 2026

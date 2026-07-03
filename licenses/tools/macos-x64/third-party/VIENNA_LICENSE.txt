@@ -1,0 +1,105 @@
+﻿ViennaRNA Package License
+========================
+
+Tool Name: ViennaRNA Package
+License Type: Custom License (Free Use)
+Copyright Holder: University of Vienna
+Developers: Ronny Lorenz, Ivo L. Hofacker, et al.
+Official Website: http://www.tbi.univie.ac.at/RNA/
+
+License Statement
+----------
+
+The ViennaRNA Package is distributed under a custom license that allows free use, modification, and distribution while requiring appropriate citation. The license is similar to permissive open-source licenses but not exactly equivalent to any standard open-source license.
+
+Usage Conditions
+--------
+
+The ViennaRNA Package allows:
+- Free use for academic and commercial purposes
+- Source code modification
+- Distribution of original and modified versions
+- Creation of derivative works
+
+The only requirement is:
+- Cite original literature in research results using the software
+- Preserve original copyright notices
+
+Included Tools
+----------
+
+ViennaRNA Package tools included in TBtools:
+- RNAfold.exe - RNA secondary structure prediction
+- RNAplot.exe - RNA structure visualization
+
+Citation Information
+--------
+
+In research results using the ViennaRNA Package, the following literature must be cited:
+
+Lorenz R, Bernhart SH, Höner zu Siederdissen C, Tafer H, Flamm C, 
+Stadler PF, Hofacker IL. (2011)
+"ViennaRNA Package 2.0."
+Algorithms Mol Biol 6:26.
+
+And the original methodology paper:
+
+Hofacker IL. (2003)
+"Vienna RNA secondary structure server."
+Nucleic Acids Res 31(13):3429-3431.
+
+Technical Notes
+--------
+
+The ViennaRNA Package is a toolkit for RNA secondary structure analysis and prediction,
+with main features:
+
+1. RNAfold - Predict minimum free energy structure and pairing probabilities for single RNA sequences
+2. RNAplot - Convert RNA structures to various graphic formats for visualization
+3. Support for multiple algorithms:
+   - Minimum free energy (MFE) prediction
+   - Partition function calculation
+   - Pairing probability analysis
+   - Suboptimal structure prediction
+
+Application Areas
+--------
+
+- RNA structural biology research
+- Non-coding RNA functional prediction
+- RNA design and engineering
+- Comparative RNA structure analysis
+- Drug design and target identification
+
+Data Formats
+--------
+
+Input: RNA or DNA sequences (FASTA format or plain text)
+Output:
+- Dot-bracket notation secondary structure
+- Minimum free energy values
+- Pairing probability matrices
+- Various graphic format structure diagrams
+
+Performance Features
+--------
+
+- Efficient dynamic programming algorithms
+- Accurate thermodynamic parameters
+- Support for large-scale sequence analysis
+- Multi-threaded computation support
+
+Disclaimer
+----------
+
+This software is provided "as is" without any express or implied warranty. The University of Vienna assumes no liability for any damages resulting from the use of this software.
+
+Contact Information
+--------
+
+For questions about the ViennaRNA Package, please contact:
+Ronny Lorenz
+Institute for Theoretical Chemistry, University of Vienna
+Email: ronny@tbi.univie.ac.at
+
+Last Updated: February 15, 2026

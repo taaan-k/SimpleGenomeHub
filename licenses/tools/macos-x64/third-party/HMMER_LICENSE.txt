@@ -1,0 +1,93 @@
+﻿HMMER License
+==============
+
+Tool Name: HMMER (profile hidden Markov models for protein sequence analysis)
+License Type: BSD 3-Clause License
+Copyright Holder: Howard Hughes Medical Institute
+Author: Sean R. Eddy
+Official Website: http://hmmer.org/
+
+BSD 3-Clause License Full Text
+------------------------------
+
+Copyright (c) [Year], Howard Hughes Medical Institute
+All rights reserved.
+
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions are met:
+
+ 1. Redistributions of source code must retain the above copyright notice,
+    this list of conditions and the following disclaimer.
+
+ 2. Redistributions in binary form must reproduce the above copyright notice,
+    this list of conditions and the following disclaimer in the documentation
+    and/or other materials provided with the distribution.
+
+ 3. Neither the name of the copyright holder nor the names of its
+    contributors may be used to endorse or promote products derived from
+    this software without specific prior written permission.
+
+ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+License Features
+---------------
+
+The BSD 3-Clause license is a permissive open-source license that allows:
+- Commercial use
+- Modification
+- Distribution
+- Private use
+
+The only obligations are:
+- Preserve copyright notice
+- Preserve license text
+- Do not use copyright holder's name for promotion
+
+Included Tools
+--------------
+
+HMMER tool suite components included in TBtools:
+- hmmpress.exe - Create HMM database indexes
+- hmmsearch.exe - Use HMM to search sequence databases
+
+Citation Information
+--------------------
+
+When using HMMER in academic research, please cite the following literature:
+
+Eddy SR. (2011)
+"Accelerated profile HMM searches."
+PLoS Comput Biol 7(10):e1002195.
+
+And the original HMMER methodology paper:
+
+Eddy SR. (1998)
+"Profile hidden Markov models."
+Bioinformatics 14(9):755-763.
+
+Technical Notes
+---------------
+
+HMMER is software for biological sequence analysis, particularly suited for:
+- Protein family detection
+- Sequence homology search
+- Protein domain identification
+- Sequence annotation and classification
+
+HMMER uses hidden Markov model (HMM) technology, which provides higher sensitivity and specificity than traditional methods.
+
+Disclaimer
+----------
+
+This software is provided "as is" without any express or implied warranty. Howard Hughes Medical Institute assumes no liability for any damages resulting from the use of this software.
+
+Last Updated: February 15, 2026

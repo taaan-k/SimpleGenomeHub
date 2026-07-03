@@ -1,0 +1,59 @@
+﻿BLAST+ Software Suite License
+=============================
+
+Tool Name: BLAST+ (Basic Local Alignment Search Tool)
+Version: 2.12.0+
+License Type: Public Domain
+Copyright Holder: U.S. Government, National Center for Biotechnology Information (NCBI)
+Official Website: https://blast.ncbi.nlm.nih.gov/Blast.cgi
+
+License Statement
+-----------------
+
+BLAST+ software is in the public domain. According to the official NCBI documentation:
+
+"BLAST is public domain software. Public-domain software is software that has been placed in the public domain, in other words, software for which there is absolutely no ownership such as copyright, trademark, or patent. Software in the public domain can be modified, distributed, or sold even without any attribution by anyone; this is unlike the common case of software under exclusive copyright, where licenses grant limited usage rights."
+
+Usage Conditions
+----------------
+
+BLAST+ software can be freely:
+- Used: for any purpose, including commercial purposes
+- Modified: source code can be modified
+- Distributed: can be freely copied and distributed
+- Used to create derivative works: new software can be based on BLAST+
+
+No attribution requirements, no copyright preservation requirements.
+
+Included Tools
+--------------
+
+The BLAST+ tool suite components included in TBtools:
+- blastn.exe - Nucleotide sequence alignment
+- blastp.exe - Protein sequence alignment
+- blastx.exe - Translated nucleotide to protein alignment
+- tblastn.exe - Protein to translated nucleotide database alignment
+- tblastx.exe - Translated nucleotide to translated nucleotide alignment
+- makeblastdb.exe - Create BLAST databases
+- blast_formatter.exe - Format BLAST output
+- blastdbcmd.exe - BLAST database operation commands
+
+Citation Information
+--------------------
+
+When using BLAST+ in academic research, please cite the following literature:
+
+Altschul SF, Gish W, Miller W, Myers EW, Lipman DJ. (1990) 
+"Basic local alignment search tool." J Mol Biol 215(3):403-410.
+
+And the updated version:
+
+Camacho C, Coulouris G, Avagyan V, Ma N, Papadopoulos J, Bealer K, Madden TL. (2009)
+"BLAST+: architecture and applications." BMC Bioinformatics 10:421.
+
+Disclaimer
+----------
+
+This software is provided by the U.S. Government "as is", without any express or implied warranty. The Government assumes no liability for any damages resulting from the use of this software.
+
+Last Updated: February 15, 2026

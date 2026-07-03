@@ -1,0 +1,758 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SimpleGenomeHub NetBeans Ant Build Script -->
+<project name="SimpleGenomeHub" default="default" basedir=".">
+    <description>Builds, tests, and runs the SimpleGenomeHub project.</description>
+    <property environment="env"/>
+    
+    <!-- NetBeans build implementation import (optional) -->
+    <!-- <import file="nbproject/build-impl.xml"/> -->
+    
+    <!-- Project properties -->
+    <property name="src.dir" location="src"/>
+    <property name="test.src.dir" location="test"/>
+    <property name="build.dir" location="build"/>
+    <property name="build.classes.dir" location="${build.dir}/classes"/>
+    <property name="build.test.classes.dir" location="${build.dir}/test/classes"/>
+    <property name="dist.dir" location="dist"/>
+    <property name="lib.dir" location="lib"/>
+    <property name="release.dir" location="${dist.dir}"/>
+    <property name="release.app.dir" location="${release.dir}/app"/>
+    <property name="release.lib.dir" location="${release.dir}/lib"/>
+    <property name="release.tbtools.lib.dir" location="${release.dir}/tbtools/lib"/>
+    <property name="release.runtime.dir" location="${release.dir}/runtime"/>
+    <property name="windows.toolchain.java.home" location="toolchain/windows-x64"/>
+    <property name="mac.toolchain.java.home" location="toolchain/macos-x64"/>
+    <property name="linux.toolchain.java.home" location="toolchain/linux-x64"/>
+    <property name="tools.source.dir" location="bin/tools"/>
+    <property name="packages.dir" location="packages"/>
+    <property name="windows.package.name" value="SimpleGenomeHub-windows-x64"/>
+    <property name="windows.package.dir" location="${packages.dir}/${windows.package.name}"/>
+    <property name="macos.package.name" value="SimpleGenomeHub-macos-x64"/>
+    <property name="macos.package.dir" location="${packages.dir}/${macos.package.name}"/>
+
+    <condition property="is.windows">
+        <os family="windows"/>
+    </condition>
+
+    <condition property="host.toolchain.java.home" value="${windows.toolchain.java.home}">
+        <os family="windows"/>
+    </condition>
+
+    <condition property="host.toolchain.java.home" value="${mac.toolchain.java.home}">
+        <and>
+            <not>
+                <isset property="host.toolchain.java.home"/>
+            </not>
+            <os family="mac"/>
+        </and>
+    </condition>
+
+    <condition property="host.toolchain.java.home" value="${linux.toolchain.java.home}">
+        <and>
+            <not>
+                <isset property="host.toolchain.java.home"/>
+            </not>
+            <os family="unix"/>
+        </and>
+    </condition>
+
+    <condition property="java.command" value="java.exe" else="java">
+        <isset property="is.windows"/>
+    </condition>
+
+    <condition property="javac.command" value="javac.exe" else="javac">
+        <isset property="is.windows"/>
+    </condition>
+
+    <condition property="javac.source.dir" value="${host.toolchain.java.home}" else="${env.JAVA_HOME}">
+        <available file="${host.toolchain.java.home}/bin/${javac.command}"/>
+    </condition>
+
+    <condition property="compiler.available">
+        <available file="${javac.source.dir}/bin/${javac.command}"/>
+    </condition>
+
+    <condition property="has.tests">
+        <available file="${test.src.dir}" type="dir"/>
+    </condition>
+    
+    <!-- Classpath for compilation -->
+    <path id="compile.classpath">
+        <fileset dir="${lib.dir}">
+            <include name="**/*.jar"/>
+        </fileset>
+    </path>
+    
+    <!-- Classpath for testing -->
+    <path id="test.classpath">
+        <path refid="compile.classpath"/>
+        <pathelement location="${build.classes.dir}"/>
+        <pathelement location="${build.test.classes.dir}"/>
+    </path>
+    
+    <!-- Initialize build directories -->
+    <target name="init">
+        <mkdir dir="${build.classes.dir}"/>
+        <mkdir dir="${build.test.classes.dir}"/>
+        <mkdir dir="${dist.dir}"/>
+    </target>
+
+    <target name="prepare-release">
+        <delete dir="${release.app.dir}" failonerror="false"/>
+        <delete dir="${release.dir}/bin" failonerror="false"/>
+        <delete dir="${release.dir}/demo" failonerror="false"/>
+        <delete dir="${release.lib.dir}" failonerror="false"/>
+        <delete dir="${release.runtime.dir}" failonerror="false"/>
+        <delete dir="${release.dir}/tbtools" failonerror="false"/>
+        <delete file="${release.tbtools.lib.dir}/TBtools_JRE1.6.jar" failonerror="false"/>
+        <delete file="${release.dir}/run.bat" failonerror="false"/>
+        <delete file="${release.dir}/run.ps1" failonerror="false"/>
+        <delete file="${release.dir}/run.sh" failonerror="false"/>
+        <delete file="${release.dir}/README.txt" failonerror="false"/>
+        <delete file="${release.dir}/README.md" failonerror="false"/>
+
+        <mkdir dir="${release.dir}"/>
+        <mkdir dir="${release.app.dir}"/>
+        <mkdir dir="${release.lib.dir}"/>
+        <mkdir dir="${release.tbtools.lib.dir}"/>
+        <mkdir dir="${release.dir}/bin/tools"/>
+    </target>
+
+    <target name="check-toolchain-javac">
+        <fail unless="compiler.available"
+              message="Java compiler not found. Provide toolchain/&lt;platform&gt;/ or set JAVA_HOME to a JDK 11+ installation."/>
+    </target>
+    
+    <!-- Clean build artifacts -->
+    <target name="clean">
+        <delete dir="${build.dir}"/>
+        <delete dir="${dist.dir}"/>
+    </target>
+    
+    <!-- Compile main source code -->
+    <target name="compile" depends="init,check-toolchain-javac">
+        <javac srcdir="${src.dir}" 
+               destdir="${build.classes.dir}"
+               classpathref="compile.classpath"
+               includeantruntime="false"
+               encoding="UTF-8"
+               source="11"
+               target="11"
+               fork="true"
+               executable="${javac.source.dir}/bin/${javac.command}">
+            <compilerarg value="-Xlint:unchecked"/>
+            <compilerarg value="-Xlint:deprecation"/>
+        </javac>
+    </target>
+    
+    <!-- Compile test source code -->
+    <target name="compile-test" depends="compile,check-toolchain-javac" if="has.tests">
+        <javac srcdir="${test.src.dir}" 
+               destdir="${build.test.classes.dir}"
+               classpathref="test.classpath"
+               includeantruntime="false"
+               encoding="UTF-8"
+               source="11"
+               target="11"
+               fork="true"
+               executable="${javac.source.dir}/bin/${javac.command}">
+            <compilerarg value="-Xlint:unchecked"/>
+            <compilerarg value="-Xlint:deprecation"/>
+        </javac>
+    </target>
+    
+    <!-- Run unit tests -->
+    <target name="test" depends="compile-test" if="has.tests">
+        <junit printsummary="yes" haltonfailure="no" fork="yes">
+            <classpath refid="test.classpath"/>
+            <formatter type="plain"/>
+            <batchtest todir="${build.dir}">
+                <fileset dir="${test.src.dir}">
+                    <include name="**/*Test.java"/>
+                </fileset>
+            </batchtest>
+        </junit>
+    </target>
+    
+    <!-- Create JAR file -->
+    <target name="jar" depends="compile">
+        <jar jarfile="${dist.dir}/SimpleGenomeHub.jar" basedir="${build.classes.dir}">
+            <manifest>
+                <attribute name="Main-Class" value="simplegenomehub.gui.SimpleGenomeHubMainPanel"/>
+                <attribute name="Implementation-Title" value="SimpleGenomeHub"/>
+                <attribute name="Implementation-Version" value="1.0"/>
+                <attribute name="Implementation-Vendor" value="SimpleGenomeHub Team"/>
+            </manifest>
+        </jar>
+    </target>
+    
+    <condition property="runtime.source.dir" value="${host.toolchain.java.home}" else="${env.JAVA_HOME}">
+        <available file="${host.toolchain.java.home}/bin/${java.command}"/>
+    </condition>
+
+    <condition property="bundle.runtime.available">
+        <available file="${runtime.source.dir}/bin/${java.command}"/>
+    </condition>
+
+    <condition property="windows.bundle.runtime.available">
+        <available file="${windows.toolchain.java.home}/bin/java.exe"/>
+    </condition>
+
+    <condition property="mac.bundle.runtime.available">
+        <available file="${mac.toolchain.java.home}/bin/java"/>
+    </condition>
+
+    <target name="bundle-runtime" depends="prepare-release,jar" if="bundle.runtime.available">
+        <mkdir dir="${release.runtime.dir}"/>
+        <copy todir="${release.runtime.dir}/bin">
+            <fileset dir="${runtime.source.dir}/bin"/>
+        </copy>
+        <copy todir="${release.runtime.dir}/conf" failonerror="false">
+            <fileset dir="${runtime.source.dir}/conf" erroronmissingdir="false"/>
+        </copy>
+        <copy todir="${release.runtime.dir}/legal" failonerror="false">
+            <fileset dir="${runtime.source.dir}/legal" erroronmissingdir="false"/>
+        </copy>
+        <copy todir="${release.runtime.dir}/lib">
+            <fileset dir="${runtime.source.dir}/lib"/>
+        </copy>
+        <copy file="${runtime.source.dir}/release" todir="${release.runtime.dir}" failonerror="false"/>
+    </target>
+
+    <target name="bundle-runtime-skipped" depends="prepare-release,jar" unless="bundle.runtime.available">
+        <echo message="No bundled runtime found under ${host.toolchain.java.home} and JAVA_HOME is not usable. Skipping bundled runtime copy."/>
+    </target>
+
+    <!-- Create distribution with dependencies -->
+    <target name="dist" depends="bundle-runtime,bundle-runtime-skipped">
+        <copy file="${dist.dir}/SimpleGenomeHub.jar" tofile="${release.app.dir}/SimpleGenomeHub.jar"/>
+
+        <copy todir="${release.lib.dir}">
+            <fileset dir="${lib.dir}">
+                <include name="**/*.jar"/>
+                <exclude name="TBtools_JRE1.6.jar"/>
+            </fileset>
+        </copy>
+
+        <copy file="${lib.dir}/TBtools_JRE1.6.jar" tofile="${release.tbtools.lib.dir}/TBtools_JRE1.6.jar"/>
+
+        <copy todir="${release.dir}/bin/tools" failonerror="false">
+            <fileset dir="${tools.source.dir}" erroronmissingdir="false"/>
+        </copy>
+
+        <echo message="Using external tool payload from: ${tools.source.dir}"/>
+        
+        <!-- Create run script for Windows -->
+        <echo file="${release.dir}/run.bat"><![CDATA[@echo off
+setlocal
+set "SCRIPT_DIR=%~dp0"
+pushd "%SCRIPT_DIR%" >nul || (
+    echo Failed to enter application directory: "%SCRIPT_DIR%"
+    pause
+    exit /b 1
+)
+set "APP_HOME=%CD%"
+set "APP_JAR=%APP_HOME%\app\SimpleGenomeHub.jar"
+set "BUNDLED_JAVA=%APP_HOME%\runtime\bin\java.exe"
+set "TOOLS_DIR=%APP_HOME%\bin\tools\windows-x64"
+if not exist "%TOOLS_DIR%" set "TOOLS_DIR=%APP_HOME%\bin\tools"
+set "JAVA_EXE="
+if exist "%BUNDLED_JAVA%" set "JAVA_EXE=%BUNDLED_JAVA%"
+if not defined JAVA_EXE if defined JAVA_HOME if exist "%JAVA_HOME%\bin\java.exe" set "JAVA_EXE=%JAVA_HOME%\bin\java.exe"
+if not defined JAVA_EXE set "JAVA_EXE=java"
+
+if not exist "%APP_JAR%" (
+    echo Missing application jar: "%APP_JAR%"
+    echo Current application directory: "%APP_HOME%"
+    pause
+    exit /b 1
+)
+
+if exist "%TOOLS_DIR%" set "PATH=%TOOLS_DIR%;%PATH%"
+
+"%JAVA_EXE%" "-Dsimplegenomehub.app.home=%APP_HOME%" -cp "app\SimpleGenomeHub.jar;lib/*;tbtools/lib/*" simplegenomehub.gui.SimpleGenomeHubMainPanel
+set "EXIT_CODE=%ERRORLEVEL%"
+popd >nul
+if not "%EXIT_CODE%"=="0" (
+    echo.
+    echo SimpleGenomeHub exited with code %EXIT_CODE%.
+    echo App home: "%APP_HOME%"
+    echo Java executable: "%JAVA_EXE%"
+    if exist "%BUNDLED_JAVA%" (
+        echo Bundled runtime path: "%BUNDLED_JAVA%"
+    ) else (
+        echo Bundled runtime path not found: "%BUNDLED_JAVA%"
+    )
+    if exist "%TOOLS_DIR%" (
+        echo Tools path: "%TOOLS_DIR%"
+    ) else (
+        echo Tools path not found: "%TOOLS_DIR%"
+    )
+    echo If the package path contains unsupported characters, move it to a simple ASCII path and try again.
+    pause
+)
+exit /b %EXIT_CODE%
+]]></echo>
+
+        <!-- Create run script for PowerShell -->
+        <echo file="${release.dir}/run.ps1"><![CDATA[$ErrorActionPreference = "Stop"
+$distDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$javaExe = Join-Path $distDir "runtime\bin\java.exe"
+$toolsDir = Join-Path $distDir "bin\tools\windows-x64"
+if (-not (Test-Path $toolsDir)) {
+    $toolsDir = Join-Path $distDir "bin\tools"
+}
+
+if (-not (Test-Path $javaExe)) {
+    if ($env:JAVA_HOME -and (Test-Path (Join-Path $env:JAVA_HOME "bin\java.exe"))) {
+        $javaExe = Join-Path $env:JAVA_HOME "bin\java.exe"
+    } else {
+        $javaExe = "java"
+    }
+}
+
+Push-Location $distDir
+try {
+    if (Test-Path $toolsDir) {
+        $env:Path = $toolsDir + ";" + $env:Path
+    }
+    & $javaExe "-Dsimplegenomehub.app.home=$distDir" -cp "app\SimpleGenomeHub.jar;lib/*;tbtools/lib/*" simplegenomehub.gui.SimpleGenomeHubMainPanel
+    exit $LASTEXITCODE
+}
+finally {
+    Pop-Location
+}
+]]></echo>
+        
+        <!-- Create run script for Unix/Linux -->
+        <echo file="${release.dir}/run.sh"><![CDATA[#!/bin/bash
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+if [ -x "$SCRIPT_DIR/runtime/bin/java" ]; then
+    JAVA_EXE="$SCRIPT_DIR/runtime/bin/java"
+elif [ -n "${JAVA_HOME:-}" ] && [ -x "$JAVA_HOME/bin/java" ]; then
+    JAVA_EXE="$JAVA_HOME/bin/java"
+else
+    JAVA_EXE="java"
+fi
+TOOLS_ROOT="$SCRIPT_DIR/bin/tools"
+TOOLS_DIR=""
+if [ -d "$TOOLS_ROOT" ]; then
+    case "$(uname -s)" in
+        Darwin)
+            case "$(uname -m)" in
+                arm64|aarch64)
+                    for candidate in "$TOOLS_ROOT/macos-arm64" "$TOOLS_ROOT/macos-universal" "$TOOLS_ROOT/macos-x64" "$TOOLS_ROOT"; do
+                        if [ -d "$candidate" ]; then
+                            TOOLS_DIR="$candidate"
+                            break
+                        fi
+                    done
+                    ;;
+                *)
+                    for candidate in "$TOOLS_ROOT/macos-x64" "$TOOLS_ROOT/macos-universal" "$TOOLS_ROOT"; do
+                        if [ -d "$candidate" ]; then
+                            TOOLS_DIR="$candidate"
+                            break
+                        fi
+                    done
+                    ;;
+            esac
+            ;;
+        Linux)
+            case "$(uname -m)" in
+                arm64|aarch64)
+                    for candidate in "$TOOLS_ROOT/linux-arm64" "$TOOLS_ROOT/linux-aarch64" "$TOOLS_ROOT"; do
+                        if [ -d "$candidate" ]; then
+                            TOOLS_DIR="$candidate"
+                            break
+                        fi
+                    done
+                    ;;
+                *)
+                    for candidate in "$TOOLS_ROOT/linux-x64" "$TOOLS_ROOT/linux-amd64" "$TOOLS_ROOT"; do
+                        if [ -d "$candidate" ]; then
+                            TOOLS_DIR="$candidate"
+                            break
+                        fi
+                    done
+                    ;;
+            esac
+            ;;
+        *)
+            TOOLS_DIR="$TOOLS_ROOT"
+            ;;
+    esac
+fi
+if [ -n "$TOOLS_DIR" ] && [ -d "$TOOLS_DIR" ]; then
+    export PATH="$TOOLS_DIR:$PATH"
+fi
+exec "$JAVA_EXE" "-Dsimplegenomehub.app.home=$SCRIPT_DIR" -cp "app/SimpleGenomeHub.jar:lib/*:tbtools/lib/*" simplegenomehub.gui.SimpleGenomeHubMainPanel
+]]></echo>
+        <chmod file="${release.dir}/run.sh" perm="755"/>
+
+        <echo file="${release.dir}/README.txt"><![CDATA[SimpleGenomeHub distribution
+
+Contents
+- app/SimpleGenomeHub.jar
+- lib/ (general dependency jars)
+- tbtools/lib/TBtools_JRE1.6.jar
+- bin/tools/ (platform-scoped external executables)
+- runtime/ (bundled Java 11 runtime when available)
+- run.bat / run.ps1 / run.sh launch scripts
+
+Requirements
+- No system Java is required if runtime/ is present
+- If runtime/ is missing, Java 11 or newer must be available
+- For local builds, copy a JDK-like Java 11 toolchain into toolchain/<platform>/ before running ant
+- The application stores user configuration under the current user's home directory
+- The launcher sets simplegenomehub.app.home to this folder for future exe compatibility
+- The launcher prefers the platform-specific tool directory under bin/tools/
+
+Usage on Windows
+- Double-click run.bat
+- Or from PowerShell: .\run.ps1
+]]></echo>
+
+        <echo file="${release.dir}/README.md"><![CDATA[# SimpleGenomeHub Release Package
+
+This directory is the current Windows release package of SimpleGenomeHub.
+
+## Contents
+
+```text
+dist/
+  app/
+    SimpleGenomeHub.jar
+  lib/
+  tbtools/
+    lib/
+      TBtools_JRE1.6.jar
+  bin/
+    tools/
+  runtime/
+  run.bat
+  run.ps1
+  run.sh
+```
+
+## What Each Folder Is For
+
+- `app/`: main application jar built from the local `simplegenomehub` source code
+- `lib/`: Java runtime dependencies used by SimpleGenomeHub
+- `tbtools/lib/`: TBtools-related jar dependency used in integration points
+- `bin/tools/`: bundled external tool payload organized by platform, for example `windows-x64/` and `macos-x64/`
+- `runtime/`: bundled Java 11 runtime used by the launcher
+
+## How To Run
+
+### Windows
+
+Double-click `run.bat`
+
+Or start from PowerShell:
+
+```powershell
+.\run.ps1
+```
+
+## Runtime Requirement
+
+- No system Java installation is required if `runtime/` exists
+- If `runtime/` is removed, Java 11 or newer must be available
+
+## Important Notes
+
+- The launcher automatically adds the current platform tool directory to `PATH` at startup
+- User configuration is stored under `%USERPROFILE%\.SimpleGenomeHub\`
+- Species/genome project data is stored in the directory configured by the user inside the application
+
+## Source Boundary
+
+The main program jar in `app/SimpleGenomeHub.jar` is built from the local `src/simplegenomehub/` codebase.
+
+This release package also contains third-party binary dependencies, including:
+
+- TBtools-related jar dependency
+- external command-line tools from the TBtools toolchain
+- bundled Java runtime
+
+These are packaged as runtime dependencies, not merged source code.
+]]></echo>
+        <delete file="${dist.dir}/SimpleGenomeHub.jar" failonerror="false"/>
+    </target>
+
+    <target name="prepare-packages-root">
+        <mkdir dir="${packages.dir}"/>
+    </target>
+
+    <target name="package-windows-base" depends="prepare-packages-root,jar">
+        <delete dir="${windows.package.dir}" failonerror="false"/>
+        <delete file="${packages.dir}/${windows.package.name}.zip" failonerror="false"/>
+
+        <mkdir dir="${windows.package.dir}/app"/>
+        <mkdir dir="${windows.package.dir}/lib"/>
+        <mkdir dir="${windows.package.dir}/tbtools/lib"/>
+        <mkdir dir="${windows.package.dir}/bin/tools/windows-x64"/>
+
+        <copy file="${dist.dir}/SimpleGenomeHub.jar" tofile="${windows.package.dir}/app/SimpleGenomeHub.jar"/>
+
+        <copy todir="${windows.package.dir}/lib">
+            <fileset dir="${lib.dir}">
+                <include name="**/*.jar"/>
+                <exclude name="TBtools_JRE1.6.jar"/>
+            </fileset>
+        </copy>
+
+        <copy file="${lib.dir}/TBtools_JRE1.6.jar" tofile="${windows.package.dir}/tbtools/lib/TBtools_JRE1.6.jar"/>
+
+        <copy todir="${windows.package.dir}/bin/tools/windows-x64" failonerror="false">
+            <fileset dir="${tools.source.dir}/windows-x64" erroronmissingdir="false"/>
+        </copy>
+
+        <echo file="${windows.package.dir}/run.bat"><![CDATA[@echo off
+setlocal
+set "SCRIPT_DIR=%~dp0"
+pushd "%SCRIPT_DIR%" >nul || (
+    echo Failed to enter application directory: "%SCRIPT_DIR%"
+    pause
+    exit /b 1
+)
+set "APP_HOME=%CD%"
+set "APP_JAR=%APP_HOME%\app\SimpleGenomeHub.jar"
+set "BUNDLED_JAVA=%APP_HOME%\runtime\bin\java.exe"
+set "TOOLS_DIR=%APP_HOME%\bin\tools\windows-x64"
+set "JAVA_EXE="
+if exist "%BUNDLED_JAVA%" set "JAVA_EXE=%BUNDLED_JAVA%"
+if not defined JAVA_EXE if defined JAVA_HOME if exist "%JAVA_HOME%\bin\java.exe" set "JAVA_EXE=%JAVA_HOME%\bin\java.exe"
+if not defined JAVA_EXE set "JAVA_EXE=java"
+
+if not exist "%APP_JAR%" (
+    echo Missing application jar: "%APP_JAR%"
+    pause
+    exit /b 1
+)
+
+if exist "%TOOLS_DIR%" set "PATH=%TOOLS_DIR%;%PATH%"
+
+"%JAVA_EXE%" "-Dsimplegenomehub.app.home=%APP_HOME%" -cp "app\SimpleGenomeHub.jar;lib/*;tbtools/lib/*" simplegenomehub.gui.SimpleGenomeHubMainPanel
+set "EXIT_CODE=%ERRORLEVEL%"
+popd >nul
+if not "%EXIT_CODE%"=="0" (
+    echo.
+    echo SimpleGenomeHub exited with code %EXIT_CODE%.
+    echo Java executable: "%JAVA_EXE%"
+    echo Tools path: "%TOOLS_DIR%"
+    pause
+)
+exit /b %EXIT_CODE%
+]]></echo>
+
+        <echo file="${windows.package.dir}/run.ps1"><![CDATA[$ErrorActionPreference = "Stop"
+$appHome = Split-Path -Parent $MyInvocation.MyCommand.Path
+$javaExe = Join-Path $appHome "runtime\bin\java.exe"
+$toolsDir = Join-Path $appHome "bin\tools\windows-x64"
+
+if (-not (Test-Path $javaExe)) {
+    if ($env:JAVA_HOME -and (Test-Path (Join-Path $env:JAVA_HOME "bin\java.exe"))) {
+        $javaExe = Join-Path $env:JAVA_HOME "bin\java.exe"
+    } else {
+        $javaExe = "java"
+    }
+}
+
+Push-Location $appHome
+try {
+    if (Test-Path $toolsDir) {
+        $env:Path = $toolsDir + ";" + $env:Path
+    }
+    & $javaExe "-Dsimplegenomehub.app.home=$appHome" -cp "app\SimpleGenomeHub.jar;lib/*;tbtools/lib/*" simplegenomehub.gui.SimpleGenomeHubMainPanel
+    exit $LASTEXITCODE
+}
+finally {
+    Pop-Location
+}
+]]></echo>
+
+        <echo file="${windows.package.dir}/README.md"><![CDATA[# SimpleGenomeHub Windows Release
+
+## Contents
+
+- `app/`: main application jar
+- `lib/`: Java dependency jars
+- `tbtools/lib/TBtools_JRE1.6.jar`: required TBtools dependency jar
+- `bin/tools/windows-x64/`: bundled Windows external tools
+- `runtime/`: bundled Windows Java runtime when present
+- `run.bat` and `run.ps1`: launchers
+
+## How To Run
+
+- Double-click `run.bat`
+- Or run `.\run.ps1` in PowerShell
+
+## Runtime Notes
+
+- This package is self-contained when `runtime/` exists
+- If `runtime/` is removed, Java 11 or newer must be available via `JAVA_HOME` or `PATH`
+]]></echo>
+    </target>
+
+    <target name="package-windows-runtime" depends="package-windows-base" if="windows.bundle.runtime.available">
+        <mkdir dir="${windows.package.dir}/runtime"/>
+        <copy todir="${windows.package.dir}/runtime/bin">
+            <fileset dir="${windows.toolchain.java.home}/bin"/>
+        </copy>
+        <copy todir="${windows.package.dir}/runtime/conf" failonerror="false">
+            <fileset dir="${windows.toolchain.java.home}/conf" erroronmissingdir="false"/>
+        </copy>
+        <copy todir="${windows.package.dir}/runtime/legal" failonerror="false">
+            <fileset dir="${windows.toolchain.java.home}/legal" erroronmissingdir="false"/>
+        </copy>
+        <copy todir="${windows.package.dir}/runtime/lib">
+            <fileset dir="${windows.toolchain.java.home}/lib"/>
+        </copy>
+        <copy file="${windows.toolchain.java.home}/release" todir="${windows.package.dir}/runtime" failonerror="false"/>
+    </target>
+
+    <target name="package-windows-runtime-skipped" depends="package-windows-base" unless="windows.bundle.runtime.available">
+        <echo message="Windows runtime not found under ${windows.toolchain.java.home}. Packaging without bundled runtime."/>
+    </target>
+
+    <target name="package-windows-archive" depends="package-windows-runtime,package-windows-runtime-skipped">
+        <zip destfile="${packages.dir}/${windows.package.name}.zip">
+            <zipfileset dir="${windows.package.dir}" prefix="${windows.package.name}"/>
+        </zip>
+    </target>
+
+    <target name="package-windows" depends="package-windows-archive"/>
+
+    <target name="package-macos-base" depends="prepare-packages-root,jar">
+        <delete dir="${macos.package.dir}" failonerror="false"/>
+        <delete file="${packages.dir}/${macos.package.name}.tar.gz" failonerror="false"/>
+
+        <mkdir dir="${macos.package.dir}/app"/>
+        <mkdir dir="${macos.package.dir}/lib"/>
+        <mkdir dir="${macos.package.dir}/tbtools/lib"/>
+        <mkdir dir="${macos.package.dir}/bin/tools/macos-x64"/>
+
+        <copy file="${dist.dir}/SimpleGenomeHub.jar" tofile="${macos.package.dir}/app/SimpleGenomeHub.jar"/>
+
+        <copy todir="${macos.package.dir}/lib">
+            <fileset dir="${lib.dir}">
+                <include name="**/*.jar"/>
+                <exclude name="TBtools_JRE1.6.jar"/>
+            </fileset>
+        </copy>
+
+        <copy file="${lib.dir}/TBtools_JRE1.6.jar" tofile="${macos.package.dir}/tbtools/lib/TBtools_JRE1.6.jar"/>
+
+        <copy todir="${macos.package.dir}/bin/tools/macos-x64" failonerror="false">
+            <fileset dir="${tools.source.dir}/macos-x64" erroronmissingdir="false"/>
+        </copy>
+
+        <echo file="${macos.package.dir}/run.sh"><![CDATA[#!/bin/bash
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+if [ -d "$SCRIPT_DIR/bin/tools/macos-x64" ]; then
+    chmod +x "$SCRIPT_DIR/bin/tools/macos-x64/"* 2>/dev/null || true
+    export PATH="$SCRIPT_DIR/bin/tools/macos-x64:$PATH"
+fi
+
+if [ -x "$SCRIPT_DIR/runtime/bin/java" ]; then
+    JAVA_EXE="$SCRIPT_DIR/runtime/bin/java"
+elif [ -n "${JAVA_HOME:-}" ] && [ -x "$JAVA_HOME/bin/java" ]; then
+    JAVA_EXE="$JAVA_HOME/bin/java"
+else
+    JAVA_EXE="java"
+fi
+
+exec "$JAVA_EXE" "-Dsimplegenomehub.app.home=$SCRIPT_DIR" -cp "app/SimpleGenomeHub.jar:lib/*:tbtools/lib/*" simplegenomehub.gui.SimpleGenomeHubMainPanel
+]]></echo>
+
+        <echo file="${macos.package.dir}/run.command"><![CDATA[#!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+chmod +x "$SCRIPT_DIR/run.sh" 2>/dev/null || true
+exec "$SCRIPT_DIR/run.sh"
+]]></echo>
+
+        <echo file="${macos.package.dir}/README.md"><![CDATA[# SimpleGenomeHub macOS Release
+
+## Contents
+
+- `app/`: main application jar
+- `lib/`: Java dependency jars
+- `tbtools/lib/TBtools_JRE1.6.jar`: required TBtools dependency jar
+- `bin/tools/macos-x64/`: bundled macOS Intel external tools
+- `runtime/`: bundled macOS Java runtime when present
+- `run.command` and `run.sh`: launchers
+
+## How To Run
+
+- In Terminal: `bash run.command`
+- Or make the launcher executable and double-click `run.command`
+
+## Runtime Notes
+
+- This package is self-contained only when `runtime/` exists
+- If `runtime/` is absent, Java 11 or newer must be available via `JAVA_HOME` or `PATH`
+- The current repository does not bundle a macOS Java runtime unless one is added under `toolchain/macos-x64/`
+]]></echo>
+    </target>
+
+    <target name="package-macos-runtime" depends="package-macos-base" if="mac.bundle.runtime.available">
+        <mkdir dir="${macos.package.dir}/runtime"/>
+        <copy todir="${macos.package.dir}/runtime/bin">
+            <fileset dir="${mac.toolchain.java.home}/bin"/>
+        </copy>
+        <copy todir="${macos.package.dir}/runtime/conf" failonerror="false">
+            <fileset dir="${mac.toolchain.java.home}/conf" erroronmissingdir="false"/>
+        </copy>
+        <copy todir="${macos.package.dir}/runtime/legal" failonerror="false">
+            <fileset dir="${mac.toolchain.java.home}/legal" erroronmissingdir="false"/>
+        </copy>
+        <copy todir="${macos.package.dir}/runtime/lib">
+            <fileset dir="${mac.toolchain.java.home}/lib"/>
+        </copy>
+        <copy file="${mac.toolchain.java.home}/release" todir="${macos.package.dir}/runtime" failonerror="false"/>
+    </target>
+
+    <target name="package-macos-runtime-skipped" depends="package-macos-base" unless="mac.bundle.runtime.available">
+        <echo message="macOS runtime not found under ${mac.toolchain.java.home}. Packaging macOS bundle without bundled runtime."/>
+    </target>
+
+    <target name="package-macos-archive" depends="package-macos-runtime,package-macos-runtime-skipped">
+        <tar destfile="${packages.dir}/${macos.package.name}.tar.gz" compression="gzip" longfile="gnu">
+            <tarfileset dir="${macos.package.dir}" prefix="${macos.package.name}" filemode="755">
+                <include name="run.sh"/>
+                <include name="run.command"/>
+                <include name="bin/tools/macos-x64/**"/>
+                <include name="runtime/bin/**"/>
+            </tarfileset>
+            <tarfileset dir="${macos.package.dir}" prefix="${macos.package.name}" filemode="644">
+                <include name="README.md"/>
+                <include name="app/**"/>
+                <include name="lib/**"/>
+                <include name="tbtools/**"/>
+                <include name="runtime/**"/>
+                <exclude name="runtime/bin/**"/>
+            </tarfileset>
+        </tar>
+    </target>
+
+    <target name="package-macos" depends="package-macos-archive"/>
+
+    <target name="release-bundles" depends="package-windows,package-macos"/>
+    
+    <!-- Default target -->
+    <target name="default" depends="jar"/>
+    
+    <!-- Development target - compile and run tests -->
+    <target name="dev" depends="clean,jar"/>
+    
+    <!-- Full build target -->
+    <target name="all" depends="clean,dist"/>
+    
+</project>
