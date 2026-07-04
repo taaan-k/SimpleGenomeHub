@@ -2,6 +2,14 @@
 
 SimpleGenomeHub is a Java 11 desktop application for genome and annotation management, sequence extraction, BLAST workflows, functional annotation, enrichment analysis, and synteny-related tools.
 
+# USE
+
+A compressed package (SimpleGenomeHub v.0.2) that requires no dependencies and can be used immediately after extraction is provided under Releases.
+
+For details and example operations, please refer to EXample Workflow.pdf
+
+The source code is described as follows：
+
 ## Directory Layout
 
 ```text

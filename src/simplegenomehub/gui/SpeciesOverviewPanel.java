@@ -870,11 +870,24 @@ final class SpeciesOverviewPanel extends JPanel {
 
             Dimension viewportSize = otherDataPreviewScrollPane.getViewport().getExtentSize();
             int availableWidth = viewportSize.width > 24 ? viewportSize.width - 12 : 400;
-            double widthScale = (double) availableWidth / Math.max(1, image.getWidth());
-            double scale = Math.min(1.0d, widthScale);
+            int availableHeight = viewportSize.height > 24 ? viewportSize.height - 12 : 140;
+            int imageWidth = Math.max(1, image.getWidth());
+            int imageHeight = Math.max(1, image.getHeight());
 
-            int targetWidth = Math.max(1, (int) Math.round(image.getWidth() * scale));
-            int targetHeight = Math.max(1, (int) Math.round(image.getHeight() * scale));
+            double scale = Math.min(1.0d, (double) availableWidth / imageWidth);
+            int targetWidth = Math.max(1, (int) Math.round(imageWidth * scale));
+            int targetHeight = Math.max(1, (int) Math.round(imageHeight * scale));
+
+            if (targetHeight > availableHeight) {
+                int scrollbarWidth = Math.max(0, otherDataPreviewScrollPane
+                    .getVerticalScrollBar()
+                    .getPreferredSize()
+                    .width);
+                int adjustedWidth = Math.max(1, availableWidth - scrollbarWidth);
+                scale = Math.min(1.0d, (double) adjustedWidth / imageWidth);
+                targetWidth = Math.max(1, (int) Math.round(imageWidth * scale));
+                targetHeight = Math.max(1, (int) Math.round(imageHeight * scale));
+            }
 
             Image scaledImage = image.getScaledInstance(targetWidth, targetHeight, Image.SCALE_SMOOTH);
             otherDataPreviewLabel.setText(null);
