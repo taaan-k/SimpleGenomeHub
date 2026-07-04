@@ -17,6 +17,8 @@ import simplegenomehub.util.fileio.DemoGeneSetGenerator;
 import simplegenomehub.util.fileio.GenomeStatsCalculator;
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.io.File;
 import java.io.IOException;
 import javax.swing.SwingWorker;
@@ -113,6 +115,14 @@ public class SpeciesInfoPanel extends JPanel {
     public void setSpecies(SpeciesInfo species) {
         this.currentSpecies = species;
         updateDisplay();
+        overviewPanel.applyOtherDataSelection(null);
+    }
+
+    public void applyTreeSelection(SpeciesTreePanel.SelectionContext selectionContext) {
+        SpeciesInfo species = selectionContext != null ? selectionContext.getSpecies() : null;
+        this.currentSpecies = species;
+        updateDisplay();
+        overviewPanel.applyOtherDataSelection(selectionContext);
     }
     
     /**
@@ -1010,25 +1020,29 @@ public class SpeciesInfoPanel extends JPanel {
      */
     private void importFunctionalAnnotations() {
         // Open annotation import dialog
-        AnnotationImportDialog dialog = new AnnotationImportDialog(
+        final AnnotationImportDialog dialog = new AnnotationImportDialog(
             SwingUtilities.getWindowAncestor(this), currentSpecies);
-        dialog.setVisible(true);
-        
-        // Check if import was successful and refresh UI
-        if (dialog.isImportSuccessful()) {
-            // Update species data to reflect new annotations
-            if (speciesManager != null) {
-                speciesManager.updateSpecies(currentSpecies);
+        dialog.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosed(WindowEvent e) {
+                if (!dialog.isImportSuccessful()) {
+                    return;
+                }
+
+                if (speciesManager != null) {
+                    speciesManager.updateSpecies(currentSpecies);
+                }
+
+                updateFileOperationButtons();
+                JOptionPane.showMessageDialog(
+                    SpeciesInfoPanel.this,
+                    "Functional annotations imported successfully!\nThe Functional Analysis button is now available.",
+                    "Import Complete",
+                    JOptionPane.INFORMATION_MESSAGE
+                );
             }
-            
-            // Update UI buttons
-            updateFileOperationButtons();
-            
-            // Show success message
-            JOptionPane.showMessageDialog(this,
-                "Functional annotations imported successfully!\nThe Functional Analysis button is now available.",
-                "Import Complete", JOptionPane.INFORMATION_MESSAGE);
-        }
+        });
+        dialog.setVisible(true);
     }
 
     /**
@@ -1037,12 +1051,16 @@ public class SpeciesInfoPanel extends JPanel {
     private void autoFunctionalAnnotations() {
         AutoFunctionalAnnotationDialog dialog = new AutoFunctionalAnnotationDialog(
             SwingUtilities.getWindowAncestor(this), currentSpecies);
+        dialog.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosed(WindowEvent e) {
+                if (speciesManager != null) {
+                    speciesManager.updateSpecies(currentSpecies);
+                }
+                updateFileOperationButtons();
+            }
+        });
         dialog.setVisible(true);
-
-        if (speciesManager != null) {
-            speciesManager.updateSpecies(currentSpecies);
-        }
-        updateFileOperationButtons();
     }
     
     /**
@@ -1056,11 +1074,11 @@ public class SpeciesInfoPanel extends JPanel {
                 Window parentWindow = SwingUtilities.getWindowAncestor(this);
                 JDialog loadingDialog;
                 if (parentWindow instanceof Frame) {
-                    loadingDialog = new JDialog((Frame) parentWindow, "Loading Annotations", true);
+                    loadingDialog = new JDialog((Frame) parentWindow, "Loading Annotations", false);
                 } else if (parentWindow instanceof Dialog) {
-                    loadingDialog = new JDialog((Dialog) parentWindow, "Loading Annotations", true);
+                    loadingDialog = new JDialog((Dialog) parentWindow, "Loading Annotations", false);
                 } else {
-                    loadingDialog = new JDialog((Frame) null, "Loading Annotations", true);
+                    loadingDialog = new JDialog((Frame) null, "Loading Annotations", false);
                 }
                 JProgressBar progressBar = new JProgressBar();
                 progressBar.setIndeterminate(true);

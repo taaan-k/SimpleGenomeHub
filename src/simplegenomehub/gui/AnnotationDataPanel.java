@@ -22,6 +22,8 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.io.File;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -238,7 +240,7 @@ public class AnnotationDataPanel extends JDialog {
         for (AnnotationType type : AnnotationType.values()) {
             typeFilterCombo.addItem(type);
         }
-        SimpleGenomeHubUi.setComboBoxMinimumWidth(typeFilterCombo, 220);
+        SimpleGenomeHubUi.setComboBoxMinimumWidth(typeFilterCombo, 150);
         
         geneFilterField = new JTextField(20);
         geneFilterField.setToolTipText("Filter by gene ID (partial match)");
@@ -1126,15 +1128,24 @@ public class AnnotationDataPanel extends JDialog {
      * Import more annotations
      */
     private void importMoreAnnotations() {
-        AnnotationImportDialog dialog = new AnnotationImportDialog(this, targetSpecies);
+        final AnnotationImportDialog dialog = new AnnotationImportDialog(this, targetSpecies);
+        dialog.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosed(WindowEvent e) {
+                if (!dialog.isImportSuccessful()) {
+                    return;
+                }
+
+                refreshData();
+                JOptionPane.showMessageDialog(
+                    AnnotationDataPanel.this,
+                    "Additional annotations imported successfully!",
+                    "Import Complete",
+                    JOptionPane.INFORMATION_MESSAGE
+                );
+            }
+        });
         dialog.setVisible(true);
-        
-        if (dialog.isImportSuccessful()) {
-            refreshData();
-            JOptionPane.showMessageDialog(this,
-                "Additional annotations imported successfully!",
-                "Import Complete", JOptionPane.INFORMATION_MESSAGE);
-        }
     }
     
     /**

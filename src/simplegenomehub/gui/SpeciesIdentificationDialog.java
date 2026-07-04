@@ -57,7 +57,7 @@ public class SpeciesIdentificationDialog extends JDialog {
         setupEventHandlers();
         
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
-        setSize(900, 700);
+        setSize(950, 700);
         setLocationRelativeTo(parent);
     }
     
@@ -202,7 +202,6 @@ public class SpeciesIdentificationDialog extends JDialog {
         inputPanel.add(inputButtonPanel, BorderLayout.NORTH);
         
         JScrollPane inputScrollPane = new JScrollPane(sequenceIdTextArea);
-        inputScrollPane.setPreferredSize(new Dimension(850, 200));
         inputScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         inputPanel.add(inputScrollPane, BorderLayout.CENTER);
         
@@ -233,7 +232,6 @@ public class SpeciesIdentificationDialog extends JDialog {
         centerPanel.setBorder(new TitledBorder("Results (ranked by confidence)"));
         
         JScrollPane resultsScrollPane = new JScrollPane(resultsTable);
-        resultsScrollPane.setPreferredSize(new Dimension(850, 300));
         centerPanel.add(resultsScrollPane, BorderLayout.CENTER);
         
         // Results buttons
@@ -242,7 +240,13 @@ public class SpeciesIdentificationDialog extends JDialog {
         resultsButtonPanel.add(exportResultsButton);
         centerPanel.add(resultsButtonPanel, BorderLayout.SOUTH);
         
-        mainPanel.add(centerPanel, BorderLayout.CENTER);
+        JSplitPane contentSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, topPanel, centerPanel);
+        contentSplitPane.setResizeWeight(0.42);
+        contentSplitPane.setDividerLocation(280);
+        contentSplitPane.setBorder(BorderFactory.createEmptyBorder());
+        SimpleGenomeHubUi.styleSplitPane(contentSplitPane);
+
+        mainPanel.add(contentSplitPane, BorderLayout.CENTER);
         
         // Bottom panel - status
         JPanel bottomPanel = new JPanel(new BorderLayout());

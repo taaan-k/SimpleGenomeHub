@@ -12,6 +12,8 @@ import javax.swing.*;
 import javax.swing.border.TitledBorder;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.io.File;
 import java.util.Map;
 
@@ -37,13 +39,14 @@ public class AutoFunctionalAnnotationDialog extends JDialog {
     private JButton cancelButton;
 
     public AutoFunctionalAnnotationDialog(Window parent, SpeciesInfo species) {
-        super(parent, "Auto Func. Annotations - " + species.getSpeciesName(), ModalityType.APPLICATION_MODAL);
+        super(parent, "Auto Func. Annotations - " + species.getSpeciesName(), ModalityType.MODELESS);
         this.species = species;
         initializeComponents();
         setupLayout();
         setupEvents();
-        setSize(720, 520);
-        setMinimumSize(new Dimension(680, 480));
+        installPrimaryRunButtonStyleRefresh();
+        setSize(820, 520);
+        setMinimumSize(new Dimension(780, 480));
         setLocationRelativeTo(parent);
     }
 
@@ -91,6 +94,8 @@ public class AutoFunctionalAnnotationDialog extends JDialog {
 
         runButton = new JButton("Run Auto Annotation");
         cancelButton = new JButton("Cancel");
+        normalizeBottomButtonSizes();
+        applyPrimaryRunButtonStyle();
 
         updateKeggControls();
     }
@@ -357,5 +362,37 @@ public class AutoFunctionalAnnotationDialog extends JDialog {
             statusArea.append("\n");
         }
         statusArea.setCaretPosition(statusArea.getDocument().getLength());
+    }
+
+    private void installPrimaryRunButtonStyleRefresh() {
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowOpened(WindowEvent e) {
+                SwingUtilities.invokeLater(() -> applyPrimaryRunButtonStyle());
+            }
+        });
+    }
+
+    private void applyPrimaryRunButtonStyle() {
+        runButton.setBackground(SimpleGenomeHubStyle.DIALOG_PRIMARY_BUTTON);
+        runButton.setForeground(SimpleGenomeHubStyle.DIALOG_PRIMARY_BUTTON_TEXT);
+        runButton.setBorder(BorderFactory.createLineBorder(SimpleGenomeHubStyle.DIALOG_PRIMARY_BUTTON_BORDER, 1));
+        runButton.setFocusPainted(false);
+        runButton.setOpaque(true);
+    }
+
+    private void normalizeBottomButtonSizes() {
+        int buttonHeight = Math.max(
+            Math.max(cancelButton.getPreferredSize().height, runButton.getPreferredSize().height),
+            30
+        );
+        Dimension cancelSize = new Dimension(100, buttonHeight);
+        Dimension runSize = new Dimension(176, buttonHeight);
+
+        cancelButton.setPreferredSize(cancelSize);
+        cancelButton.setMinimumSize(cancelSize);
+
+        runButton.setPreferredSize(runSize);
+        runButton.setMinimumSize(runSize);
     }
 }

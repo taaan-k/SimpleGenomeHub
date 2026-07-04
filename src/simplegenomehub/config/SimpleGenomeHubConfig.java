@@ -36,6 +36,7 @@ public class SimpleGenomeHubConfig {
     public static final String EGGNOG_OUTPUT_PREFIX = "eggnog.output.prefix";
     public static final String EGGNOG_KEGG_BACKEND_MODE = "eggnog.kegg.backend.mode";
     public static final String EGGNOG_KEGG_BACKEND_TYPE = "eggnog.kegg.backend.type";
+    public static final String UI_FONT_SCALE_PERCENT = "ui.font.scale.percent";
     
     // Default values
     private static final String DEFAULT_CONFIG_VERSION = "1.0";
@@ -131,6 +132,7 @@ public class SimpleGenomeHubConfig {
         configProperties.setProperty(EGGNOG_EVALUE, "0.001");
         configProperties.setProperty(EGGNOG_KEGG_BACKEND_MODE, "PRESET");
         configProperties.setProperty(EGGNOG_KEGG_BACKEND_TYPE, "Plants");
+        configProperties.setProperty(UI_FONT_SCALE_PERCENT, "100");
         saveConfig();
     }
     
@@ -222,6 +224,20 @@ public class SimpleGenomeHubConfig {
      * Set configuration property
      */
     public void setProperty(String key, String value) {
+        String currentValue = configProperties.getProperty(key);
+        if (value == null) {
+            if (currentValue == null) {
+                return;
+            }
+            configProperties.remove(key);
+            saveConfig();
+            return;
+        }
+
+        if (value.equals(currentValue)) {
+            return;
+        }
+
         configProperties.setProperty(key, value);
         saveConfig();
     }
@@ -246,6 +262,14 @@ public class SimpleGenomeHubConfig {
      */
     public void setIntProperty(String key, int value) {
         setProperty(key, String.valueOf(value));
+    }
+
+    public int getUiFontScalePercent() {
+        return getIntProperty(UI_FONT_SCALE_PERCENT, 100);
+    }
+
+    public void setUiFontScalePercent(int scalePercent) {
+        setIntProperty(UI_FONT_SCALE_PERCENT, scalePercent);
     }
     
     /**

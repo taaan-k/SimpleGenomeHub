@@ -267,7 +267,7 @@ public class BlastResultsPanel extends JPanel {
      * Set column widths
      */
     private void setColumnWidths() {
-        int[] columnWidths = {40, 120, 180, 80, 80, 80, 80, 80, 80, 80, 80};
+        int[] columnWidths = {40, 120, 180, 160, 80, 80, 80, 80, 80, 80, 80, 80};
         for (int i = 0; i < columnWidths.length && i < resultsTable.getColumnCount(); i++) {
             resultsTable.getColumnModel().getColumn(i).setPreferredWidth(columnWidths[i]);
         }
@@ -289,7 +289,7 @@ public class BlastResultsPanel extends JPanel {
             }
         };
         scientificRenderer.setHorizontalAlignment(SwingConstants.RIGHT);
-        resultsTable.getColumnModel().getColumn(4).setCellRenderer(scientificRenderer); // E-value (now column 4)
+        resultsTable.getColumnModel().getColumn(5).setCellRenderer(scientificRenderer);
         
         // Percentage renderer
         DefaultTableCellRenderer percentageRenderer = new DefaultTableCellRenderer() {
@@ -303,13 +303,13 @@ public class BlastResultsPanel extends JPanel {
             }
         };
         percentageRenderer.setHorizontalAlignment(SwingConstants.RIGHT);
-        resultsTable.getColumnModel().getColumn(5).setCellRenderer(percentageRenderer); // Identity% (now column 5)
+        resultsTable.getColumnModel().getColumn(6).setCellRenderer(percentageRenderer);
         
         // Right-aligned renderer for numbers
         DefaultTableCellRenderer rightRenderer = new DefaultTableCellRenderer();
         rightRenderer.setHorizontalAlignment(SwingConstants.RIGHT);
-        for (int i = 3; i < resultsTable.getColumnCount(); i++) {
-            if (i != 4 && i != 5) { // Skip E-value and Identity% (already set)
+        for (int i = 4; i < resultsTable.getColumnCount(); i++) {
+            if (i != 5 && i != 6) {
                 resultsTable.getColumnModel().getColumn(i).setCellRenderer(rightRenderer);
             }
         }
@@ -704,22 +704,24 @@ public class BlastResultsPanel extends JPanel {
             case 1:
                 return Comparator.comparing(this::getQueryIdForHit, String.CASE_INSENSITIVE_ORDER);
             case 2:
-                return Comparator.comparing(BlastHit::getHitId, String.CASE_INSENSITIVE_ORDER);
+                return Comparator.comparing(this::getHitTranscriptId, String.CASE_INSENSITIVE_ORDER);
             case 3:
-                return Comparator.comparingDouble(BlastHit::getBitScore);
+                return Comparator.comparing(this::getHitGeneId, String.CASE_INSENSITIVE_ORDER);
             case 4:
-                return Comparator.comparingDouble(BlastHit::getEvalue);
+                return Comparator.comparingDouble(BlastHit::getBitScore);
             case 5:
-                return Comparator.comparingDouble(BlastHit::getIdentityPercentage);
+                return Comparator.comparingDouble(BlastHit::getEvalue);
             case 6:
-                return Comparator.comparingInt(BlastHit::getHitLength);
+                return Comparator.comparingDouble(BlastHit::getIdentityPercentage);
             case 7:
-                return Comparator.comparingInt(BlastHit::getQueryStart);
+                return Comparator.comparingInt(BlastHit::getHitLength);
             case 8:
-                return Comparator.comparingInt(BlastHit::getQueryEnd);
+                return Comparator.comparingInt(BlastHit::getQueryStart);
             case 9:
-                return Comparator.comparingInt(BlastHit::getSubjectStart);
+                return Comparator.comparingInt(BlastHit::getQueryEnd);
             case 10:
+                return Comparator.comparingInt(BlastHit::getSubjectStart);
+            case 11:
                 return Comparator.comparingInt(BlastHit::getSubjectEnd);
             default:
                 return null;
@@ -804,7 +806,8 @@ public class BlastResultsPanel extends JPanel {
         StringBuilder details = new StringBuilder();
         
         details.append(buildHitDetailsHeader(hit)).append("\n\n");
-        details.append("Hit ID: ").append(hit.getHitId()).append("\n");
+        details.append("Hit mRNA ID: ").append(getHitTranscriptId(hit)).append("\n");
+        details.append("Hit Gene ID: ").append(getHitGeneId(hit)).append("\n");
         details.append("Description: ").append(hit.getHitDef()).append("\n");
         details.append("Length: ").append(hit.getHitLength()).append(" aa/bp\n");
         details.append("Bit Score: ").append(String.format("%.1f", hit.getBitScore())).append("\n");
@@ -831,9 +834,17 @@ public class BlastResultsPanel extends JPanel {
     }
 
     private String buildHitDetailsHeader(BlastHit hit) {
-        String transcriptId = normalizeTranscriptId(hit != null ? hit.getHitId() : null);
+        String transcriptId = getHitTranscriptId(hit);
         String parentGeneId = resolveParentGeneId(transcriptId);
         return "Transcript_ID=" + transcriptId + HIT_DETAILS_ID_SEPARATOR + "Parent_Gene_ID=" + parentGeneId;
+    }
+
+    private String getHitTranscriptId(BlastHit hit) {
+        return normalizeTranscriptId(hit != null ? hit.getHitId() : null);
+    }
+
+    private String getHitGeneId(BlastHit hit) {
+        return resolveParentGeneId(getHitTranscriptId(hit));
     }
 
     private String normalizeTranscriptId(String hitId) {
@@ -1641,7 +1652,7 @@ public class BlastResultsPanel extends JPanel {
         }
 
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile))) {
-            writer.write("#\tQuery ID\tHit ID\tBit Score\tE-value\tIdentity%\tLength\tQuery Start\tQuery End\tSubject Start\tSubject End");
+            writer.write("#\tQuery ID\tHit mRNA ID\tHit Gene ID\tBit Score\tE-value\tIdentity%\tLength\tQuery Start\tQuery End\tSubject Start\tSubject End");
             writer.newLine();
 
             List<BlastHit> allHits = currentResult.getHits();
@@ -1651,7 +1662,9 @@ public class BlastResultsPanel extends JPanel {
                 writer.write('\t');
                 writer.write(getQueryIdForHit(hit));
                 writer.write('\t');
-                writer.write(hit.getHitId());
+                writer.write(getHitTranscriptId(hit));
+                writer.write('\t');
+                writer.write(getHitGeneId(hit));
                 writer.write('\t');
                 writer.write(Double.toString(hit.getBitScore()));
                 writer.write('\t');
@@ -1722,7 +1735,7 @@ public class BlastResultsPanel extends JPanel {
     private class BlastHitsTableModel extends AbstractTableModel {
         private List<BlastHit> hits = new ArrayList<>();
         private String[] columnNames = {
-            "#", "Query ID", "Hit ID", "Bit Score", "E-value", "Identity%", "Length", "Query Start", "Query End", "Subject Start", "Subject End"
+            "#", "Query ID", "Hit mRNA ID", "Hit Gene ID", "Bit Score", "E-value", "Identity%", "Length", "Query Start", "Query End", "Subject Start", "Subject End"
         };
         
         public void setHits(List<BlastHit> hits) {
@@ -1742,15 +1755,16 @@ public class BlastResultsPanel extends JPanel {
             switch (column) {
                 case 0: return hits.indexOf(hit) + 1;
                 case 1: return getQueryIdForHit(hit);
-                case 2: return hit.getHitId();
-                case 3: return hit.getBitScore();
-                case 4: return hit.getEvalue();
-                case 5: return hit.getIdentityPercentage();
-                case 6: return hit.getHitLength();
-                case 7: return hit.getQueryStart();
-                case 8: return hit.getQueryEnd();
-                case 9: return hit.getSubjectStart();
-                case 10: return hit.getSubjectEnd();
+                case 2: return getHitTranscriptId(hit);
+                case 3: return getHitGeneId(hit);
+                case 4: return hit.getBitScore();
+                case 5: return hit.getEvalue();
+                case 6: return hit.getIdentityPercentage();
+                case 7: return hit.getHitLength();
+                case 8: return hit.getQueryStart();
+                case 9: return hit.getQueryEnd();
+                case 10: return hit.getSubjectStart();
+                case 11: return hit.getSubjectEnd();
                 default: return "";
             }
         }
@@ -1773,8 +1787,8 @@ public class BlastResultsPanel extends JPanel {
         @Override
         public Class<?> getColumnClass(int column) {
             switch (column) {
-                case 0: case 6: case 7: case 8: case 9: case 10: return Integer.class;
-                case 3: case 4: case 5: return Double.class;
+                case 0: case 7: case 8: case 9: case 10: case 11: return Integer.class;
+                case 4: case 5: case 6: return Double.class;
                 default: return String.class;
             }
         }

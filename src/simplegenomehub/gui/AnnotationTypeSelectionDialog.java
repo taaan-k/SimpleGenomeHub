@@ -39,7 +39,7 @@ public class AnnotationTypeSelectionDialog extends JDialog {
      * Constructor
      */
     public AnnotationTypeSelectionDialog(Window parent, SpeciesInfo species) {
-        super(parent, "Select Annotation Type - " + species.getSpeciesName(), ModalityType.APPLICATION_MODAL);
+        super(parent, "Select Annotation Type - " + species.getSpeciesName(), ModalityType.MODELESS);
         this.targetSpecies = species;
         this.annotationData = species.getFunctionalAnnotations();
         

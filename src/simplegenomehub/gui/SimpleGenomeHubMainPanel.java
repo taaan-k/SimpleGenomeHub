@@ -48,6 +48,7 @@ public class SimpleGenomeHubMainPanel extends JPanel implements SpeciesManager.S
      * Initialize core components
      */
     private void initializeComponents() {
+        SimpleGenomeHubFontManager.install();
         SimpleGenomeHubUi.installGlobalMenuStyling();
         SimpleGenomeHubUi.installGlobalDialogStyling();
         config = SimpleGenomeHubConfig.getInstance();
@@ -92,8 +93,12 @@ public class SimpleGenomeHubMainPanel extends JPanel implements SpeciesManager.S
      */
     private JPanel createTitleBannerPanel() {
         final String titleText = "SimpleGenomeHub - Genome Management System";
-        final Font titleFont = SimpleGenomeHubStyle.FONT_SANS_BOLD_24;
         final Color sideBarColor = new Color(218, 232, 247);
+
+        JLabel titleLabel = new JLabel(titleText);
+        titleLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        titleLabel.setForeground(SimpleGenomeHubUi.TITLE_BLUE);
+        titleLabel.setFont(SimpleGenomeHubStyle.FONT_SANS_BOLD_24);
 
         JPanel titlePanel = new JPanel(new GridBagLayout()) {
             @Override
@@ -115,6 +120,9 @@ public class SimpleGenomeHubMainPanel extends JPanel implements SpeciesManager.S
                     ));
                     g2.fillRect(0, 0, getWidth(), getHeight());
 
+                    Font titleFont = titleLabel.getFont() != null
+                        ? titleLabel.getFont()
+                        : SimpleGenomeHubStyle.FONT_SANS_BOLD_24;
                     FontMetrics fontMetrics = g2.getFontMetrics(titleFont);
                     int titleWidth = fontMetrics.stringWidth(titleText);
                     int titleLeft = (getWidth() - titleWidth) / 2;
@@ -147,11 +155,6 @@ public class SimpleGenomeHubMainPanel extends JPanel implements SpeciesManager.S
         };
         titlePanel.setOpaque(false);
         titlePanel.setPreferredSize(new Dimension(10, 84));
-
-        JLabel titleLabel = new JLabel(titleText);
-        titleLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        titleLabel.setForeground(SimpleGenomeHubUi.TITLE_BLUE);
-        titleLabel.setFont(titleFont);
         titlePanel.add(titleLabel);
 
         return titlePanel;
@@ -165,13 +168,17 @@ public class SimpleGenomeHubMainPanel extends JPanel implements SpeciesManager.S
         statusPanel.setBorder(BorderFactory.createEtchedBorder());
         statusPanel.setBackground(new Color(236, 243, 252));
         statusPanel.add(statusLabel, BorderLayout.WEST);
-        
-        // Add data directory info
+
         String dataDir = config.isDataRootConfigured() ? 
             config.getDataRootDir().getAbsolutePath() : "Not configured";
         JLabel dataDirLabel = new JLabel("Data Directory: " + dataDir);
         dataDirLabel.setFont(SimpleGenomeHubStyle.plain(dataDirLabel.getFont(), 11f));
-        statusPanel.add(dataDirLabel, BorderLayout.EAST);
+
+        JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        rightPanel.setOpaque(false);
+        rightPanel.add(dataDirLabel);
+        rightPanel.add(SimpleGenomeHubFontManager.createScaleControl());
+        statusPanel.add(rightPanel, BorderLayout.EAST);
         
         return statusPanel;
     }
@@ -188,7 +195,7 @@ public class SimpleGenomeHubMainPanel extends JPanel implements SpeciesManager.S
         speciesTreePanel.addSelectionListener(new SpeciesTreePanel.SelectionListener() {
             @Override
             public void onSpeciesSelected(SpeciesInfo species) {
-                speciesInfoPanel.setSpecies(species);
+                speciesInfoPanel.applyTreeSelection(speciesTreePanel.getCurrentSelectionContext());
             }
         });
     }
@@ -309,7 +316,7 @@ public class SimpleGenomeHubMainPanel extends JPanel implements SpeciesManager.S
     
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
-            SimpleGenomeHubStyle.installGlobalFontDefaults();
+            SimpleGenomeHubFontManager.install();
             // Use default Swing look and feel
             
             // Create main frame

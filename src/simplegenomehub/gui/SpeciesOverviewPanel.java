@@ -2,8 +2,11 @@ package simplegenomehub.gui;
 
 import simplegenomehub.model.GenomeData;
 import simplegenomehub.model.SpeciesInfo;
+import simplegenomehub.util.fileio.AdvancedCircosPreviewExporter;
+import simplegenomehub.util.fileio.DualSyntenyPreviewExporter;
 import simplegenomehub.util.fileio.GenomeStatsCalculator;
 
+import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.plaf.basic.BasicScrollBarUI;
 import java.awt.*;
@@ -11,6 +14,7 @@ import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -18,6 +22,11 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -30,6 +39,12 @@ final class SpeciesOverviewPanel extends JPanel {
     private static final Color GENE_SET_SCROLL_TRACK_COLOR = new Color(236, 241, 247);
     private static final Color GENE_SET_SCROLL_THUMB_COLOR = new Color(180, 191, 206);
     private static final Color GENE_SET_SCROLL_THUMB_HOVER_COLOR = new Color(153, 168, 188);
+    private static final DateTimeFormatter OTHER_DATA_DIR_TIME_FORMAT =
+        DateTimeFormatter.ofPattern("yyyy-M-d-H-m");
+    private static final DateTimeFormatter OTHER_DATA_DISPLAY_TIME_FORMAT =
+        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    private static final String OTHER_DATA_PROMPT_CARD = "prompt";
+    private static final String OTHER_DATA_PREVIEW_CARD = "preview";
 
     private final JLabel speciesNameLabel;
     private final JLabel versionLabel;
@@ -43,9 +58,21 @@ final class SpeciesOverviewPanel extends JPanel {
     private final JPanel geneSetTabsPanel;
     private final JViewport geneSetTabsViewport;
     private final JScrollBar geneSetTabsScrollBar;
+    private final CardLayout otherDataCardLayout;
+    private final JPanel otherDataCardPanel;
+    private final JLabel otherDataPromptLabel;
+    private final JLabel otherDataTimeLabel;
+    private final JLabel otherDataGenome1Label;
+    private final JLabel otherDataGenome2Label;
+    private final JLabel otherDataPreviewLabel;
+    private final JScrollPane otherDataPreviewScrollPane;
+    private final JSplitPane otherDataPreviewSplitPane;
+    private final JTextArea otherDataLinkListArea;
+    private final JScrollPane otherDataLinkListScrollPane;
 
     private SpeciesInfo currentSpecies;
     private File currentGeneSetFile;
+    private File currentOtherDataPreviewFile;
     private StatisticsView currentStatisticsView;
     private boolean chromosomeStatsReloadInProgress;
 
@@ -62,6 +89,17 @@ final class SpeciesOverviewPanel extends JPanel {
         geneSetTabsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         geneSetTabsViewport = new JViewport();
         geneSetTabsScrollBar = new JScrollBar(JScrollBar.HORIZONTAL);
+        otherDataCardLayout = new CardLayout();
+        otherDataCardPanel = new JPanel(otherDataCardLayout);
+        otherDataPromptLabel = new JLabel("Please select an analysis result first.", SwingConstants.CENTER);
+        otherDataTimeLabel = new JLabel("Time: -");
+        otherDataGenome1Label = new JLabel("");
+        otherDataGenome2Label = new JLabel("");
+        otherDataPreviewLabel = new JLabel("", SwingConstants.CENTER);
+        otherDataPreviewScrollPane = new JScrollPane(otherDataPreviewLabel);
+        otherDataPreviewSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
+        otherDataLinkListArea = new JTextArea(3, 20);
+        otherDataLinkListScrollPane = new JScrollPane(otherDataLinkListArea);
         currentStatisticsView = StatisticsView.GENOME;
 
         initializeComponents();
@@ -99,6 +137,72 @@ final class SpeciesOverviewPanel extends JPanel {
         geneSetArea.setBackground(Color.WHITE);
         geneSetArea.setBorder(SimpleGenomeHubUi.createInnerPadding(8, 8, 8, 8));
 
+        otherDataPromptLabel.setFont(SimpleGenomeHubStyle.FONT_SANS_PLAIN_15);
+        otherDataPromptLabel.setForeground(STAT_TEXT_COLOR);
+
+        otherDataTimeLabel.setFont(SimpleGenomeHubStyle.FONT_SANS_BOLD_15);
+        otherDataTimeLabel.setForeground(STAT_TEXT_COLOR);
+        otherDataGenome1Label.setFont(SimpleGenomeHubStyle.FONT_SANS_PLAIN_14);
+        otherDataGenome1Label.setForeground(STAT_TEXT_COLOR);
+        otherDataGenome2Label.setFont(SimpleGenomeHubStyle.FONT_SANS_PLAIN_14);
+        otherDataGenome2Label.setForeground(STAT_TEXT_COLOR);
+        otherDataGenome1Label.setVisible(false);
+        otherDataGenome2Label.setVisible(false);
+
+        otherDataPreviewLabel.setOpaque(true);
+        otherDataPreviewLabel.setBackground(Color.WHITE);
+        otherDataPreviewLabel.setForeground(STAT_TEXT_COLOR);
+        otherDataPreviewLabel.setVerticalAlignment(SwingConstants.TOP);
+        otherDataPreviewLabel.setHorizontalAlignment(SwingConstants.CENTER);
+
+        otherDataPreviewScrollPane.setBorder(BorderFactory.createEmptyBorder());
+        otherDataPreviewScrollPane.setOpaque(false);
+        otherDataPreviewScrollPane.getViewport().setBackground(Color.WHITE);
+        otherDataPreviewScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        otherDataPreviewScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        otherDataPreviewScrollPane.setMinimumSize(new Dimension(0, 0));
+        ModernScrollBarStyle.applyTo(otherDataPreviewScrollPane);
+        otherDataPreviewScrollPane.getViewport().addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentResized(ComponentEvent e) {
+                refreshOtherDataPreviewImage();
+            }
+        });
+
+        otherDataPreviewSplitPane.setBorder(BorderFactory.createEmptyBorder());
+        otherDataPreviewSplitPane.setOpaque(false);
+        otherDataPreviewSplitPane.setContinuousLayout(true);
+        otherDataPreviewSplitPane.setResizeWeight(0.5d);
+        otherDataPreviewSplitPane.setOneTouchExpandable(false);
+        otherDataPreviewSplitPane.setEnabled(false);
+        otherDataPreviewSplitPane.setTopComponent(otherDataPreviewScrollPane);
+        otherDataPreviewSplitPane.setBottomComponent(otherDataLinkListScrollPane);
+        otherDataPreviewSplitPane.setDividerSize(0);
+        otherDataPreviewSplitPane.addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentResized(ComponentEvent e) {
+                updateOtherDataPreviewSplitLayout();
+            }
+        });
+
+        otherDataLinkListArea.setEditable(false);
+        otherDataLinkListArea.setLineWrap(false);
+        otherDataLinkListArea.setWrapStyleWord(false);
+        otherDataLinkListArea.setFont(SimpleGenomeHubStyle.FONT_SANS_PLAIN_13);
+        otherDataLinkListArea.setForeground(STAT_TEXT_COLOR);
+        otherDataLinkListArea.setBackground(Color.WHITE);
+        otherDataLinkListArea.setBorder(SimpleGenomeHubUi.createInnerPadding(6, 6, 6, 6));
+        otherDataLinkListScrollPane.setBorder(BorderFactory.createEmptyBorder());
+        otherDataLinkListScrollPane.setOpaque(false);
+        otherDataLinkListScrollPane.getViewport().setBackground(Color.WHITE);
+        otherDataLinkListScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        otherDataLinkListScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        otherDataLinkListScrollPane.setMinimumSize(new Dimension(0, 0));
+        ModernScrollBarStyle.applyTo(otherDataLinkListScrollPane);
+        otherDataLinkListScrollPane.setVisible(false);
+
+        otherDataCardPanel.setOpaque(false);
+
         geneSetTabSection.setOpaque(false);
         geneSetTabSection.setVisible(false);
         geneSetTabsPanel.setOpaque(false);
@@ -121,6 +225,7 @@ final class SpeciesOverviewPanel extends JPanel {
         });
 
         updateStatisticsTabs();
+        showOtherDataPrompt();
     }
 
     private void setupLayout() {
@@ -284,6 +389,7 @@ final class SpeciesOverviewPanel extends JPanel {
     private JPanel createOtherDataPanel() {
         JPanel contentPanel = new JPanel(new BorderLayout());
         contentPanel.setOpaque(false);
+        contentPanel.add(createOtherDataContentPanel(), BorderLayout.CENTER);
 
         return SpeciesInfoUiSupport.createSectionCard(
             "Other Data",
@@ -292,6 +398,35 @@ final class SpeciesOverviewPanel extends JPanel {
             new Color(216, 226, 238),
             contentPanel
         );
+    }
+
+    private JPanel createOtherDataContentPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setOpaque(false);
+        panel.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(STAT_BORDER_COLOR, 2),
+            SimpleGenomeHubUi.createInnerPadding(6, 6, 6, 6)
+        ));
+
+        JPanel promptPanel = new JPanel(new BorderLayout());
+        promptPanel.setOpaque(false);
+        promptPanel.add(otherDataPromptLabel, BorderLayout.CENTER);
+
+        JPanel previewPanel = new JPanel(new BorderLayout(0, 4));
+        previewPanel.setOpaque(false);
+        JPanel previewInfoPanel = new JPanel();
+        previewInfoPanel.setOpaque(false);
+        previewInfoPanel.setLayout(new BoxLayout(previewInfoPanel, BoxLayout.Y_AXIS));
+        previewInfoPanel.add(otherDataTimeLabel);
+        previewInfoPanel.add(otherDataGenome1Label);
+        previewInfoPanel.add(otherDataGenome2Label);
+        previewPanel.add(previewInfoPanel, BorderLayout.NORTH);
+        previewPanel.add(otherDataPreviewSplitPane, BorderLayout.CENTER);
+
+        otherDataCardPanel.add(promptPanel, OTHER_DATA_PROMPT_CARD);
+        otherDataCardPanel.add(previewPanel, OTHER_DATA_PREVIEW_CARD);
+        panel.add(otherDataCardPanel, BorderLayout.CENTER);
+        return panel;
     }
 
     private JPanel createGeneSetPanel() {
@@ -388,6 +523,29 @@ final class SpeciesOverviewPanel extends JPanel {
         notesArea.setText(species.getNotes() != null ? species.getNotes() : "");
         updateStatisticsText();
         updateGeneSetDisplay();
+        showOtherDataPrompt();
+    }
+
+    void applyOtherDataSelection(SpeciesTreePanel.SelectionContext selectionContext) {
+        if (selectionContext == null || selectionContext.getSelectionKind() == SpeciesTreePanel.SelectionKind.NONE) {
+            showOtherDataPrompt();
+            return;
+        }
+
+        switch (selectionContext.getSelectionKind()) {
+            case ADVANCE_CIRCOS_RESULT:
+                showAdvanceCircosOtherData(selectionContext.getSelectedFile());
+                break;
+            case GENOME_COMPARE_RESULT:
+                showGenomeCompareOtherData(selectionContext.getSelectedFile());
+                break;
+            case MULTIPLE_SYNTENY_RESULT:
+                showMultipleSyntenyOtherData(selectionContext.getSelectedFile());
+                break;
+            default:
+                showOtherDataPrompt();
+                break;
+        }
     }
 
     JTextArea getNotesArea() {
@@ -408,6 +566,7 @@ final class SpeciesOverviewPanel extends JPanel {
         statisticsArea.setCaretPosition(0);
         rebuildGeneSetTabs(new File[0]);
         setGeneSetStatusText("Please select a genome");
+        showOtherDataPrompt();
     }
 
     private void selectStatisticsView(StatisticsView statisticsView) {
@@ -594,6 +753,368 @@ final class SpeciesOverviewPanel extends JPanel {
     private void setGeneSetStatusText(String text) {
         geneSetArea.setText(text);
         geneSetArea.setCaretPosition(0);
+    }
+
+    private void showOtherDataPrompt() {
+        currentOtherDataPreviewFile = null;
+        otherDataTimeLabel.setText("Time: -");
+        updateOtherDataGenomeLabels(null, null);
+        updateOtherDataLinkList(null);
+        otherDataPreviewLabel.setIcon(null);
+        otherDataPreviewLabel.setText("");
+        otherDataPreviewLabel.setPreferredSize(null);
+        otherDataCardLayout.show(otherDataCardPanel, OTHER_DATA_PROMPT_CARD);
+    }
+
+    private void showAdvanceCircosOtherData(File resultDir) {
+        if (resultDir == null || !resultDir.isDirectory()) {
+            showOtherDataPrompt();
+            return;
+        }
+
+        currentOtherDataPreviewFile = AdvancedCircosPreviewExporter.getPreviewFile(resultDir);
+        otherDataTimeLabel.setText("Time: " + formatOtherDataTime(resultDir));
+        updateOtherDataGenomeLabels(null, null);
+        updateOtherDataLinkList(null);
+        otherDataCardLayout.show(otherDataCardPanel, OTHER_DATA_PREVIEW_CARD);
+        refreshOtherDataPreviewImage();
+    }
+
+    private void showGenomeCompareOtherData(File resultDir) {
+        if (resultDir == null || !resultDir.isDirectory()) {
+            showOtherDataPrompt();
+            return;
+        }
+
+        GenomeCompareOtherDataInfo info = readGenomeCompareOtherDataInfo(resultDir);
+        currentOtherDataPreviewFile = DualSyntenyPreviewExporter.getPreviewFile(resultDir);
+        otherDataTimeLabel.setText("Time: " + (info != null ? info.runTime : formatOtherDataTime(resultDir)));
+        updateOtherDataGenomeLabels(
+            info != null ? info.genome1 : null,
+            info != null ? info.genome2 : null
+        );
+        updateOtherDataLinkList(null);
+        otherDataCardLayout.show(otherDataCardPanel, OTHER_DATA_PREVIEW_CARD);
+        refreshOtherDataPreviewImage();
+    }
+
+    private void showMultipleSyntenyOtherData(File resultDir) {
+        if (resultDir == null || !resultDir.isDirectory()) {
+            showOtherDataPrompt();
+            return;
+        }
+
+        MultipleSyntenyOtherDataInfo info = readMultipleSyntenyOtherDataInfo(resultDir);
+        currentOtherDataPreviewFile = new File(resultDir, "preview.png");
+        otherDataTimeLabel.setText("Time: " + (info != null ? info.runTime : formatOtherDataTime(resultDir)));
+        updateOtherDataGenomeLabels(null, null);
+        updateOtherDataLinkList(info != null ? info.linkLines : null);
+        otherDataCardLayout.show(otherDataCardPanel, OTHER_DATA_PREVIEW_CARD);
+        refreshOtherDataPreviewImage();
+    }
+
+    private void updateOtherDataGenomeLabels(String genome1, String genome2) {
+        String trimmedGenome1 = genome1 == null ? "" : genome1.trim();
+        String trimmedGenome2 = genome2 == null ? "" : genome2.trim();
+        boolean showGenome1 = !trimmedGenome1.isEmpty();
+        boolean showGenome2 = !trimmedGenome2.isEmpty();
+
+        otherDataGenome1Label.setText(showGenome1 ? "Genome1: " + trimmedGenome1 : "");
+        otherDataGenome1Label.setVisible(showGenome1);
+        otherDataGenome2Label.setText(showGenome2 ? "Genome2: " + trimmedGenome2 : "");
+        otherDataGenome2Label.setVisible(showGenome2);
+        otherDataCardPanel.revalidate();
+        otherDataCardPanel.repaint();
+    }
+
+    private void updateOtherDataLinkList(List<String> linkLines) {
+        boolean showLinks = linkLines != null && !linkLines.isEmpty();
+        otherDataLinkListArea.setText(showLinks ? String.join("\n", linkLines) : "");
+        otherDataLinkListArea.setCaretPosition(0);
+        otherDataLinkListScrollPane.setVisible(showLinks);
+        updateOtherDataPreviewSplitLayout();
+        otherDataCardPanel.revalidate();
+        otherDataCardPanel.repaint();
+    }
+
+    private void updateOtherDataPreviewSplitLayout() {
+        boolean showLinks = otherDataLinkListScrollPane.isVisible();
+        otherDataPreviewSplitPane.setDividerSize(showLinks ? 4 : 0);
+        SwingUtilities.invokeLater(() -> {
+            if (!otherDataPreviewSplitPane.isDisplayable()) {
+                return;
+            }
+            otherDataPreviewSplitPane.setDividerLocation(showLinks ? 0.5d : 1.0d);
+        });
+    }
+
+    private void refreshOtherDataPreviewImage() {
+        if (currentOtherDataPreviewFile == null) {
+            return;
+        }
+        if (!currentOtherDataPreviewFile.isFile()) {
+            otherDataPreviewLabel.setIcon(null);
+            otherDataPreviewLabel.setText("Preview image not available.");
+            otherDataPreviewLabel.setPreferredSize(null);
+            return;
+        }
+
+        try {
+            BufferedImage image = ImageIO.read(currentOtherDataPreviewFile);
+            if (image == null) {
+                otherDataPreviewLabel.setIcon(null);
+                otherDataPreviewLabel.setText("Preview image not available.");
+                otherDataPreviewLabel.setPreferredSize(null);
+                return;
+            }
+
+            Dimension viewportSize = otherDataPreviewScrollPane.getViewport().getExtentSize();
+            int availableWidth = viewportSize.width > 24 ? viewportSize.width - 12 : 400;
+            double widthScale = (double) availableWidth / Math.max(1, image.getWidth());
+            double scale = Math.min(1.0d, widthScale);
+
+            int targetWidth = Math.max(1, (int) Math.round(image.getWidth() * scale));
+            int targetHeight = Math.max(1, (int) Math.round(image.getHeight() * scale));
+
+            Image scaledImage = image.getScaledInstance(targetWidth, targetHeight, Image.SCALE_SMOOTH);
+            otherDataPreviewLabel.setText(null);
+            otherDataPreviewLabel.setIcon(new ImageIcon(scaledImage));
+            otherDataPreviewLabel.setPreferredSize(new Dimension(targetWidth, targetHeight));
+            otherDataPreviewScrollPane.getViewport().setViewPosition(new Point(0, 0));
+        } catch (IOException ex) {
+            otherDataPreviewLabel.setIcon(null);
+            otherDataPreviewLabel.setText("Failed to load preview image.");
+            otherDataPreviewLabel.setPreferredSize(null);
+        }
+    }
+
+    private String formatOtherDataTime(File resultDir) {
+        if (resultDir != null) {
+            try {
+                LocalDateTime directoryTime = LocalDateTime.parse(resultDir.getName(), OTHER_DATA_DIR_TIME_FORMAT);
+                return OTHER_DATA_DISPLAY_TIME_FORMAT.format(directoryTime);
+            } catch (DateTimeParseException ignored) {
+                // Fallback to file timestamp.
+            }
+
+            Instant instant = Instant.ofEpochMilli(resultDir.lastModified());
+            return OTHER_DATA_DISPLAY_TIME_FORMAT.format(
+                LocalDateTime.ofInstant(instant, ZoneId.systemDefault())
+            );
+        }
+        return "-";
+    }
+
+    private GenomeCompareOtherDataInfo readGenomeCompareOtherDataInfo(File resultDir) {
+        if (resultDir == null || !resultDir.isDirectory()) {
+            return null;
+        }
+
+        File metadataFile = new File(resultDir, "run-metadata.txt");
+        if (!metadataFile.isFile()) {
+            return null;
+        }
+
+        String runTime = null;
+        String genome1 = null;
+        String genome2 = null;
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+            new FileInputStream(metadataFile), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String trimmed = line.trim();
+                if (trimmed.startsWith("runTime=")) {
+                    runTime = formatMetadataRunTime(trimmed.substring("runTime=".length()).trim(), resultDir);
+                    continue;
+                }
+                if (trimmed.startsWith("species1=")) {
+                    genome1 = emptyToNull(trimmed.substring("species1=".length()));
+                    continue;
+                }
+                if (trimmed.startsWith("species2=")) {
+                    genome2 = emptyToNull(trimmed.substring("species2=".length()));
+                }
+            }
+        } catch (IOException ignored) {
+            return null;
+        }
+
+        return new GenomeCompareOtherDataInfo(
+            runTime != null ? runTime : formatOtherDataTime(resultDir),
+            genome1,
+            genome2
+        );
+    }
+
+    private MultipleSyntenyOtherDataInfo readMultipleSyntenyOtherDataInfo(File resultDir) {
+        if (resultDir == null || !resultDir.isDirectory()) {
+            return null;
+        }
+
+        File metadataFile = new File(resultDir, "run-metadata.txt");
+        if (!metadataFile.isFile()) {
+            return null;
+        }
+
+        String runTime = null;
+        String currentSection = null;
+        java.util.LinkedHashMap<String, String> genomeNamesByKey = new java.util.LinkedHashMap<>();
+        java.util.LinkedHashMap<String, LinkSummaryLine> linksByKey = new java.util.LinkedHashMap<>();
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+            new FileInputStream(metadataFile), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String trimmed = line.trim();
+                if (trimmed.isEmpty()) {
+                    continue;
+                }
+                if (trimmed.startsWith("runTime=")) {
+                    runTime = formatMetadataRunTime(trimmed.substring("runTime=".length()).trim(), resultDir);
+                    continue;
+                }
+                if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+                    currentSection = trimmed;
+                    continue;
+                }
+
+                int separatorIndex = trimmed.indexOf('=');
+                if (separatorIndex <= 0) {
+                    continue;
+                }
+
+                String key = trimmed.substring(0, separatorIndex).trim();
+                String value = trimmed.substring(separatorIndex + 1).trim();
+                if ("[genomes]".equalsIgnoreCase(currentSection)) {
+                    String baseKey = resolveGenomeBaseKey(key, ".displayName");
+                    if (baseKey != null) {
+                        String displayName = emptyToNull(value);
+                        if (displayName != null) {
+                            genomeNamesByKey.put(baseKey, displayName);
+                        }
+                        continue;
+                    }
+                    if (isSimpleGenomeKey(key) && !genomeNamesByKey.containsKey(key)) {
+                        String genomeName = emptyToNull(value);
+                        if (genomeName != null) {
+                            genomeNamesByKey.put(key, genomeName);
+                        }
+                    }
+                    continue;
+                }
+                if (!"[links]".equalsIgnoreCase(currentSection)) {
+                    continue;
+                }
+
+                String baseKey = resolveLinkBaseKey(key, ".genome1");
+                if (baseKey != null) {
+                    getOrCreateLinkSummary(linksByKey, baseKey).genome1 =
+                        resolveGenomeDisplayName(genomeNamesByKey, value);
+                    continue;
+                }
+                baseKey = resolveLinkBaseKey(key, ".genome2");
+                if (baseKey != null) {
+                    getOrCreateLinkSummary(linksByKey, baseKey).genome2 =
+                        resolveGenomeDisplayName(genomeNamesByKey, value);
+                    continue;
+                }
+                if (isSimpleLinkKey(key)) {
+                    getOrCreateLinkSummary(linksByKey, key).displayLabel = emptyToNull(value);
+                }
+            }
+        } catch (IOException ignored) {
+            return null;
+        }
+
+        List<String> linkLines = new java.util.ArrayList<>();
+        for (LinkSummaryLine linkSummary : linksByKey.values()) {
+            String linkLine = linkSummary.formatForDisplay();
+            if (linkLine != null) {
+                linkLines.add(linkLine);
+            }
+        }
+
+        return new MultipleSyntenyOtherDataInfo(
+            runTime != null ? runTime : formatOtherDataTime(resultDir),
+            linkLines
+        );
+    }
+
+    private LinkSummaryLine getOrCreateLinkSummary(java.util.LinkedHashMap<String, LinkSummaryLine> linksByKey,
+                                                   String key) {
+        LinkSummaryLine existing = linksByKey.get(key);
+        if (existing != null) {
+            return existing;
+        }
+        LinkSummaryLine created = new LinkSummaryLine();
+        linksByKey.put(key, created);
+        return created;
+    }
+
+    private String resolveLinkBaseKey(String key, String suffix) {
+        if (key == null || suffix == null || !key.startsWith("Link") || !key.endsWith(suffix)) {
+            return null;
+        }
+        return key.substring(0, key.length() - suffix.length());
+    }
+
+    private String resolveGenomeBaseKey(String key, String suffix) {
+        if (key == null || suffix == null || !key.startsWith("Genome") || !key.endsWith(suffix)) {
+            return null;
+        }
+        return key.substring(0, key.length() - suffix.length());
+    }
+
+    private boolean isSimpleLinkKey(String key) {
+        if (key == null || !key.startsWith("Link") || key.length() <= 4) {
+            return false;
+        }
+        for (int i = 4; i < key.length(); i++) {
+            if (!Character.isDigit(key.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean isSimpleGenomeKey(String key) {
+        if (key == null || !key.startsWith("Genome") || key.length() <= 6) {
+            return false;
+        }
+        for (int i = 6; i < key.length(); i++) {
+            if (!Character.isDigit(key.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private String resolveGenomeDisplayName(java.util.Map<String, String> genomeNamesByKey, String genomeKey) {
+        String normalizedKey = emptyToNull(genomeKey);
+        if (normalizedKey == null) {
+            return null;
+        }
+        String displayName = genomeNamesByKey.get(normalizedKey);
+        return displayName != null ? displayName : normalizedKey;
+    }
+
+    private String formatMetadataRunTime(String rawValue, File resultDir) {
+        String trimmed = rawValue == null ? "" : rawValue.trim();
+        if (trimmed.isEmpty()) {
+            return formatOtherDataTime(resultDir);
+        }
+        try {
+            return OTHER_DATA_DISPLAY_TIME_FORMAT.format(LocalDateTime.parse(trimmed));
+        } catch (DateTimeParseException ignored) {
+            return formatOtherDataTime(resultDir);
+        }
+    }
+
+    private String emptyToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private GenomeData resolveGenomeData() {
@@ -787,6 +1308,44 @@ final class SpeciesOverviewPanel extends JPanel {
     private enum StatisticsView {
         GENOME,
         CHROMOSOME
+    }
+
+    private static final class GenomeCompareOtherDataInfo {
+        private final String runTime;
+        private final String genome1;
+        private final String genome2;
+
+        private GenomeCompareOtherDataInfo(String runTime, String genome1, String genome2) {
+            this.runTime = runTime == null ? "-" : runTime;
+            this.genome1 = genome1;
+            this.genome2 = genome2;
+        }
+    }
+
+    private static final class MultipleSyntenyOtherDataInfo {
+        private final String runTime;
+        private final List<String> linkLines;
+
+        private MultipleSyntenyOtherDataInfo(String runTime, List<String> linkLines) {
+            this.runTime = runTime == null ? "-" : runTime;
+            this.linkLines = linkLines == null ? new java.util.ArrayList<>() : new java.util.ArrayList<>(linkLines);
+        }
+    }
+
+    private static final class LinkSummaryLine {
+        private String genome1;
+        private String genome2;
+        private String displayLabel;
+
+        private String formatForDisplay() {
+            String trimmedGenome1 = genome1 == null ? "" : genome1.trim();
+            String trimmedGenome2 = genome2 == null ? "" : genome2.trim();
+            if (!trimmedGenome1.isEmpty() && !trimmedGenome2.isEmpty()) {
+                return trimmedGenome1 + " x " + trimmedGenome2;
+            }
+            String trimmedDisplayLabel = displayLabel == null ? "" : displayLabel.trim();
+            return trimmedDisplayLabel.isEmpty() ? null : trimmedDisplayLabel;
+        }
     }
 
     private abstract class OverviewTabButton extends JComponent {

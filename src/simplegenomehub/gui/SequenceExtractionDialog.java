@@ -16,6 +16,7 @@ import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridBagLayout;
 import java.awt.GridBagConstraints;
+import java.awt.GridLayout;
 import java.awt.Insets;
 import java.awt.Window;
 import java.awt.event.ActionEvent;
@@ -70,7 +71,7 @@ public class SequenceExtractionDialog extends JDialog {
      * Constructor
      */
     public SequenceExtractionDialog(Window parent, SpeciesInfo species) {
-        super(parent, "Extract Sequences - " + species.getDisplayName(), ModalityType.APPLICATION_MODAL);
+        super(parent, "Extract Sequences - " + species.getDisplayName(), ModalityType.MODELESS);
         
         this.species = species;
         
@@ -144,7 +145,9 @@ public class SequenceExtractionDialog extends JDialog {
         extractGffButton.setFont(buttonFont);
         openOutputDirButton.setFont(buttonFont);
         cancelButton.setFont(buttonFont);
-        
+
+        applyUniformToggleWidths();
+
         // Set default output directory to species directory
         if (species.getSpeciesDir() != null) {
             File extractedDir = new File(species.getSpeciesDir(), "extracted");
@@ -197,28 +200,37 @@ public class SequenceExtractionDialog extends JDialog {
         GridBagConstraints gbc = new GridBagConstraints();
 
         // Sequence types panel
-        JPanel typesPanel = new JPanel();
+        JPanel typesPanel = new JPanel(new BorderLayout(0, 10));
         typesPanel.setBorder(new TitledBorder("Sequence Types to Extract"));
-        typesPanel.setLayout(new BoxLayout(typesPanel, BoxLayout.Y_AXIS));
 
-        typesPanel.add(extractTranscriptsCheck);
-        typesPanel.add(extractCdsCheck);
-        typesPanel.add(extractProteinsCheck);
-        typesPanel.add(extractPromotersCheck);
+        JPanel typesGrid = createTwoColumnTogglePanel(
+            extractTranscriptsCheck,
+            extractCdsCheck,
+            extractProteinsCheck,
+            extractPromotersCheck
+        );
+        typesPanel.add(typesGrid, BorderLayout.NORTH);
 
         // Add parameter panel for promoter length
+        JPanel typesDetailPanel = new JPanel();
+        typesDetailPanel.setOpaque(false);
+        typesDetailPanel.setLayout(new BoxLayout(typesDetailPanel, BoxLayout.Y_AXIS));
+
         JPanel promoterParamPanel = new JPanel();
         promoterParamPanel.setLayout(new BoxLayout(promoterParamPanel, BoxLayout.X_AXIS));
+        promoterParamPanel.setOpaque(false);
         promoterParamPanel.add(new JLabel("Upstream:"));
         promoterParamPanel.add(Box.createHorizontalStrut(5));
         promoterParamPanel.add(promoterLengthField);
         promoterParamPanel.add(Box.createHorizontalStrut(5));
         promoterParamPanel.add(new JLabel("bp"));
         promoterParamPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        typesPanel.add(promoterParamPanel);
+        typesDetailPanel.add(promoterParamPanel);
 
-        typesPanel.add(Box.createVerticalStrut(10));
-        typesPanel.add(representativeOnlyCheck);
+        typesDetailPanel.add(Box.createVerticalStrut(10));
+        representativeOnlyCheck.setAlignmentX(Component.LEFT_ALIGNMENT);
+        typesDetailPanel.add(representativeOnlyCheck);
+        typesPanel.add(typesDetailPanel, BorderLayout.CENTER);
 
         // Add types panel to main panel
         gbc.gridx = 0;
@@ -230,14 +242,16 @@ public class SequenceExtractionDialog extends JDialog {
         panel.add(typesPanel, gbc);
 
         // Representative selection options
-        JPanel representativePanel = new JPanel();
+        JPanel representativePanel = new JPanel(new BorderLayout(0, 10));
         representativePanel.setBorder(new TitledBorder("Representative Transcript Selection"));
-        representativePanel.setLayout(new BoxLayout(representativePanel, BoxLayout.Y_AXIS));
 
-        representativePanel.add(longestTranscriptRadio);
-        representativePanel.add(longestCdsRadio);
-        representativePanel.add(highestExpressionRadio);
-        representativePanel.add(firstAnnotationRadio);
+        JPanel representativeGrid = createTwoColumnTogglePanel(
+            longestTranscriptRadio,
+            longestCdsRadio,
+            highestExpressionRadio,
+            firstAnnotationRadio
+        );
+        representativePanel.add(representativeGrid, BorderLayout.NORTH);
 
         // Add description
         JTextArea descArea = new JTextArea(
@@ -249,7 +263,7 @@ public class SequenceExtractionDialog extends JDialog {
         descArea.setLineWrap(true);
         descArea.setWrapStyleWord(true);
         descArea.setBorder(BorderFactory.createEmptyBorder(10, 10, 5, 10));
-        representativePanel.add(descArea);
+        representativePanel.add(descArea, BorderLayout.CENTER);
 
         // Add representative panel to main panel
         gbc.gridy = 1;
@@ -258,6 +272,45 @@ public class SequenceExtractionDialog extends JDialog {
         panel.add(representativePanel, gbc);
 
         return panel;
+    }
+
+    private JPanel createTwoColumnTogglePanel(AbstractButton... buttons) {
+        JPanel panel = new JPanel(new GridLayout(0, 2, 12, 8));
+        panel.setOpaque(false);
+        for (AbstractButton button : buttons) {
+            button.setHorizontalAlignment(SwingConstants.LEFT);
+            panel.add(button);
+        }
+        return panel;
+    }
+
+    private void applyUniformToggleWidths() {
+        AbstractButton[] buttons = new AbstractButton[] {
+            extractTranscriptsCheck,
+            extractCdsCheck,
+            extractProteinsCheck,
+            extractPromotersCheck,
+            representativeOnlyCheck,
+            longestTranscriptRadio,
+            longestCdsRadio,
+            highestExpressionRadio,
+            firstAnnotationRadio
+        };
+
+        int maxWidth = 0;
+        int maxHeight = 0;
+        for (AbstractButton button : buttons) {
+            Dimension preferredSize = button.getPreferredSize();
+            maxWidth = Math.max(maxWidth, preferredSize.width);
+            maxHeight = Math.max(maxHeight, preferredSize.height);
+        }
+
+        Dimension uniformSize = new Dimension(maxWidth, maxHeight);
+        for (AbstractButton button : buttons) {
+            button.setPreferredSize(uniformSize);
+            button.setMinimumSize(uniformSize);
+            button.setMaximumSize(uniformSize);
+        }
     }
     
     /**

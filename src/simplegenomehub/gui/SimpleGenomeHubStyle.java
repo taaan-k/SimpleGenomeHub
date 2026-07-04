@@ -8,32 +8,35 @@ import java.awt.*;
  */
 public final class SimpleGenomeHubStyle {
 
-    public static final double FONT_SCALE_FACTOR = 1.2;
+    public static final double FONT_SCALE_FACTOR = 1.2d;
 
-    public static final Font FONT_SANS_PLAIN_11 = createScaledFont(Font.SANS_SERIF, Font.PLAIN, 11); // SequenceLookupDialog.java-114, SequenceExtractionDialog.java-141
-    public static final Font FONT_SANS_PLAIN_12 = createScaledFont(Font.SANS_SERIF, Font.PLAIN, 12); // BlastDialog.java-207, HelpDialog.java-201, KEGGEnrichmentDialog.java-281
-    public static final Font FONT_SANS_PLAIN_14 = createScaledFont(Font.SANS_SERIF, Font.PLAIN, 14); // GeneInfoViewerDialog.java-591, SpeciesInfoUiSupport.java-66
-    public static final Font FONT_SANS_PLAIN_15 = createScaledFont(Font.SANS_SERIF, Font.PLAIN, 15); // SpeciesOverviewPanel.java-54
+    private static double userFontScaleFactor = 1.0d;
 
-    public static final Font FONT_SANS_BOLD_12 = createScaledFont(Font.SANS_SERIF, Font.BOLD, 12); // BlastPanel.java-345, ChromosomeRegionExtractorDialog.java-81, GeneInfoViewerDialog.java-132, KEGGEnrichmentDialog.java-282, SequenceLookupDialog.java-171, SpeciesIdentificationDialog.java-94
-    public static final Font FONT_SANS_BOLD_13 = createScaledFont(Font.SANS_SERIF, Font.BOLD, 13); // SimpleGenomeHubUi.java-169, SpeciesOverviewPanel.java-567, SpeciesOverviewPanel.java-582
-    public static final Font FONT_SANS_BOLD_15 = createScaledFont(Font.SANS_SERIF, Font.BOLD, 15); // SpeciesInfoUiSupport.java-59, SpeciesOverviewPanel.java-581
-    public static final Font FONT_SANS_BOLD_18 = createScaledFont(Font.SANS_SERIF, Font.BOLD, 18); // AdvancedCircosLaunchDialog.java-84, SpeciesActionsPanel.java-36, SpeciesTreePanel.java-108
-    public static final Font FONT_SANS_BOLD_19 = createScaledFont(Font.SANS_SERIF, Font.BOLD, 19); // SpeciesInfoUiSupport.java-27
-    public static final Font FONT_SANS_BOLD_24 = createScaledFont(Font.SANS_SERIF, Font.BOLD, 24); // SimpleGenomeHubMainPanel.java-95
-    public static final Font FONT_SANS_BOLD_28 = createScaledFont(Font.SANS_SERIF, Font.BOLD, 28); // AdvancedCircosLaunchDialog.java-124
+    public static Font FONT_SANS_PLAIN_11; // SequenceLookupDialog.java-114, SequenceExtractionDialog.java-141
+    public static Font FONT_SANS_PLAIN_12; // BlastDialog.java-207, HelpDialog.java-201, KEGGEnrichmentDialog.java-281
+    public static Font FONT_SANS_PLAIN_13; // SpeciesOverviewPanel.java-172
+    public static Font FONT_SANS_PLAIN_14; // GeneInfoViewerDialog.java-591, SpeciesInfoUiSupport.java-66
+    public static Font FONT_SANS_PLAIN_15; // SpeciesOverviewPanel.java-54
 
-    public static final Font FONT_SANS_ITALIC_10 = createScaledFont(Font.SANS_SERIF, Font.ITALIC, 10); // SequenceLookupDialog.java-177
+    public static Font FONT_SANS_BOLD_12; // BlastPanel.java-345, ChromosomeRegionExtractorDialog.java-81, GeneInfoViewerDialog.java-132, KEGGEnrichmentDialog.java-282, SequenceLookupDialog.java-171, SpeciesIdentificationDialog.java-94
+    public static Font FONT_SANS_BOLD_13; // SimpleGenomeHubUi.java-169, SpeciesOverviewPanel.java-567, SpeciesOverviewPanel.java-582
+    public static Font FONT_SANS_BOLD_15; // SpeciesInfoUiSupport.java-59, SpeciesOverviewPanel.java-581
+    public static Font FONT_SANS_BOLD_18; // AdvancedCircosLaunchDialog.java-84, SpeciesActionsPanel.java-36, SpeciesTreePanel.java-108
+    public static Font FONT_SANS_BOLD_19; // SpeciesInfoUiSupport.java-27
+    public static Font FONT_SANS_BOLD_24; // SimpleGenomeHubMainPanel.java-95
+    public static Font FONT_SANS_BOLD_28; // AdvancedCircosLaunchDialog.java-124
 
-    public static final Font FONT_MONOSPACED_PLAIN_11 = createScaledFont(Font.MONOSPACED, Font.PLAIN, 11); // AnnotationDataPanel.java-259, AnnotationImportDialog.java-171, AnnotationImportDialog.java-340, AutoFunctionalAnnotationDialog.java-85, BatchImportDialog.java-126, BlastPanel.java-391, ExportDialog.java-122, ExpressionHeatmapDialog.java-117, FunctionalEnrichmentPanel.java-452, SearchDialog.java-146, SequenceExtractionDialog.java-130, SequenceLookupDialog.java-792, SimpleExpressionImportDialog.java-88, SimpleExpressionImportDialog.java-112, SpeciesEditDialog.java-95, SpeciesImportDialog.java-111, ValidationDialog.java-119
-    public static final Font FONT_MONOSPACED_PLAIN_12 = createScaledFont(Font.MONOSPACED, Font.PLAIN, 12); // AnnotationDataPanel.java-244, AnnotationTypeSelectionDialog.java-77, BlastPanel.java-333, BlastResultsPanel.java-239, ConfigurationDialog.java-167, ConfigurationDialog.java-374, ExpressionDataPanel.java-206, ExpressionHeatmapDialog.java-204, ExpressionHeatmapDialog.java-610, FilePreviewDialog.java-63, FunctionalEnrichmentPanel.java-108, FunctionalEnrichmentPanel.java-508, GeneFilterDialog.java-85, GeneInfoViewerDialog.java-1282, GeneInfoViewerDialog.java-1288, GeneInfoViewerDialog.java-1294, GOEnrichmentDialog.java-328, GenomeComparePanel.java-280, KEGGEnrichmentDialog.java-163, SequenceLookupDialog.java-137, SpeciesOverviewPanel.java-71
+    public static Font FONT_SANS_ITALIC_10; // SequenceLookupDialog.java-177
 
-    public static final Font FONT_COURIER_NEW_PLAIN_12 = createScaledFont("Courier New", Font.PLAIN, 12); // ChromosomeRegionExtractorDialog.java-51, SpeciesIdentificationDialog.java-67
+    public static Font FONT_MONOSPACED_PLAIN_11; // AnnotationDataPanel.java-259, AnnotationImportDialog.java-171, AnnotationImportDialog.java-340, AutoFunctionalAnnotationDialog.java-85, BatchImportDialog.java-126, BlastPanel.java-391, ExportDialog.java-122, ExpressionHeatmapDialog.java-117, FunctionalEnrichmentPanel.java-452, SearchDialog.java-146, SequenceExtractionDialog.java-130, SequenceLookupDialog.java-792, SimpleExpressionImportDialog.java-88, SimpleExpressionImportDialog.java-112, SpeciesEditDialog.java-95, SpeciesImportDialog.java-111, ValidationDialog.java-119
+    public static Font FONT_MONOSPACED_PLAIN_12; // AnnotationDataPanel.java-244, AnnotationTypeSelectionDialog.java-77, BlastPanel.java-333, BlastResultsPanel.java-239, ConfigurationDialog.java-167, ConfigurationDialog.java-374, ExpressionDataPanel.java-206, ExpressionHeatmapDialog.java-204, ExpressionHeatmapDialog.java-610, FilePreviewDialog.java-63, FunctionalEnrichmentPanel.java-108, FunctionalEnrichmentPanel.java-508, GeneFilterDialog.java-85, GeneInfoViewerDialog.java-1282, GeneInfoViewerDialog.java-1288, GeneInfoViewerDialog.java-1294, GOEnrichmentDialog.java-328, GenomeComparePanel.java-280, KEGGEnrichmentDialog.java-163, SequenceLookupDialog.java-137, SpeciesOverviewPanel.java-71
 
-    public static final Font FONT_ARIAL_PLAIN_8 = createScaledFont("Arial", Font.PLAIN, 8); // GeneInfoViewerDialog.java-2108
-    public static final Font FONT_ARIAL_PLAIN_9 = createScaledFont("Arial", Font.PLAIN, 9); // GeneInfoViewerDialog.java-2102
-    public static final Font FONT_ARIAL_BOLD_12 = createScaledFont("Arial", Font.BOLD, 12); // GeneInfoViewerDialog.java-2122
-    public static final Font FONT_ARIAL_ITALIC_10 = createScaledFont("Arial", Font.ITALIC, 10); // GeneInfoViewerDialog.java-2128
+    public static Font FONT_COURIER_NEW_PLAIN_12; // ChromosomeRegionExtractorDialog.java-51, SpeciesIdentificationDialog.java-67
+
+    public static Font FONT_ARIAL_PLAIN_8; // GeneInfoViewerDialog.java-2108
+    public static Font FONT_ARIAL_PLAIN_9; // GeneInfoViewerDialog.java-2102
+    public static Font FONT_ARIAL_BOLD_12; // GeneInfoViewerDialog.java-2122
+    public static Font FONT_ARIAL_ITALIC_10; // GeneInfoViewerDialog.java-2128
 
     public static final Color APP_BACKGROUND = Color.WHITE;
     public static final Color TITLE_BLUE = new Color(29, 71, 127);
@@ -76,13 +79,36 @@ public final class SimpleGenomeHubStyle {
     public static final Dimension SIZE_BUTTON_150_X_35 = new Dimension(150, 35);
     public static final Dimension SIZE_COMBO_280_X_30 = new Dimension(280, 30);
 
+    static {
+        refreshScaledResources();
+    }
+
     private SimpleGenomeHubStyle() {
+    }
+
+    public static void setUserFontScalePercent(int scalePercent) {
+        userFontScaleFactor = Math.max(0.5d, scalePercent / 100.0d);
+        refreshScaledResources();
+    }
+
+    public static int getUserFontScalePercent() {
+        return (int) Math.round(userFontScaleFactor * 100.0d);
+    }
+
+    public static double getUserFontScaleFactor() {
+        return userFontScaleFactor;
+    }
+
+    public static double getEffectiveFontScaleFactor() {
+        return FONT_SCALE_FACTOR * userFontScaleFactor;
     }
 
     public static void installGlobalFontDefaults() {
         UIManager.put("Button.font", FONT_SANS_PLAIN_12);
         UIManager.put("Label.font", FONT_SANS_PLAIN_12);
         UIManager.put("TextField.font", FONT_SANS_PLAIN_12);
+        UIManager.put("PasswordField.font", FONT_SANS_PLAIN_12);
+        UIManager.put("FormattedTextField.font", FONT_SANS_PLAIN_12);
         UIManager.put("TextArea.font", FONT_SANS_PLAIN_12);
         UIManager.put("TextPane.font", FONT_SANS_PLAIN_12);
         UIManager.put("EditorPane.font", FONT_SANS_PLAIN_12);
@@ -100,6 +126,9 @@ public final class SimpleGenomeHubStyle {
         UIManager.put("Tree.font", FONT_SANS_PLAIN_12);
         UIManager.put("List.font", FONT_SANS_PLAIN_12);
         UIManager.put("Spinner.font", FONT_SANS_PLAIN_12);
+        UIManager.put("Slider.font", FONT_SANS_PLAIN_12);
+        UIManager.put("ProgressBar.font", FONT_SANS_PLAIN_12);
+        UIManager.put("ToolTip.font", FONT_SANS_PLAIN_12);
     }
 
     public static Font bold(Font baseFont) {
@@ -147,15 +176,44 @@ public final class SimpleGenomeHubStyle {
         return baseFont != null ? baseFont : FONT_SANS_PLAIN_12;
     }
 
+    private static void refreshScaledResources() {
+        FONT_SANS_PLAIN_11 = createScaledFont(Font.SANS_SERIF, Font.PLAIN, 11);
+        FONT_SANS_PLAIN_12 = createScaledFont(Font.SANS_SERIF, Font.PLAIN, 12);
+        FONT_SANS_PLAIN_13 = createScaledFont(Font.SANS_SERIF, Font.PLAIN, 13);
+        FONT_SANS_PLAIN_14 = createScaledFont(Font.SANS_SERIF, Font.PLAIN, 14);
+        FONT_SANS_PLAIN_15 = createScaledFont(Font.SANS_SERIF, Font.PLAIN, 15);
+
+        FONT_SANS_BOLD_12 = createScaledFont(Font.SANS_SERIF, Font.BOLD, 12);
+        FONT_SANS_BOLD_13 = createScaledFont(Font.SANS_SERIF, Font.BOLD, 13);
+        FONT_SANS_BOLD_15 = createScaledFont(Font.SANS_SERIF, Font.BOLD, 15);
+        FONT_SANS_BOLD_18 = createScaledFont(Font.SANS_SERIF, Font.BOLD, 18);
+        FONT_SANS_BOLD_19 = createScaledFont(Font.SANS_SERIF, Font.BOLD, 19);
+        FONT_SANS_BOLD_24 = createScaledFont(Font.SANS_SERIF, Font.BOLD, 24);
+        FONT_SANS_BOLD_28 = createScaledFont(Font.SANS_SERIF, Font.BOLD, 28);
+
+        FONT_SANS_ITALIC_10 = createScaledFont(Font.SANS_SERIF, Font.ITALIC, 10);
+
+        FONT_MONOSPACED_PLAIN_11 = createScaledFont(Font.MONOSPACED, Font.PLAIN, 11);
+        FONT_MONOSPACED_PLAIN_12 = createScaledFont(Font.MONOSPACED, Font.PLAIN, 12);
+
+        FONT_COURIER_NEW_PLAIN_12 = createScaledFont("Courier New", Font.PLAIN, 12);
+
+        FONT_ARIAL_PLAIN_8 = createScaledFont("Arial", Font.PLAIN, 8);
+        FONT_ARIAL_PLAIN_9 = createScaledFont("Arial", Font.PLAIN, 9);
+        FONT_ARIAL_BOLD_12 = createScaledFont("Arial", Font.BOLD, 12);
+        FONT_ARIAL_ITALIC_10 = createScaledFont("Arial", Font.ITALIC, 10);
+
+    }
+
     private static Font createScaledFont(String family, int style, int baseSize) {
         return new Font(family, style, scaleSize(baseSize));
     }
 
     private static int scaleSize(int baseSize) {
-        return Math.max(1, (int) Math.round(baseSize * FONT_SCALE_FACTOR));
+        return Math.max(1, (int) Math.round(baseSize * getEffectiveFontScaleFactor()));
     }
 
     private static float scaleSize(float baseSize) {
-        return (float) (baseSize * FONT_SCALE_FACTOR);
+        return (float) (baseSize * getEffectiveFontScaleFactor());
     }
 }

@@ -21,6 +21,7 @@ public class SpeciesSequenceIndex {
     private Map<String, Set<String>> geneToTranscripts; // Gene ID → Transcript IDs
     private Set<String> idPatterns;               // Common ID patterns for this species
     private Map<String, String> normalizedIdMap;  // Normalized ID → Original ID mapping
+    private TranscriptToGeneMapper transcriptToGeneMapper;
     private boolean indexBuilt = false;
     
     // Pattern matching for common ID formats
@@ -44,6 +45,7 @@ public class SpeciesSequenceIndex {
         this.geneToTranscripts = new ConcurrentHashMap<>();
         this.idPatterns = ConcurrentHashMap.newKeySet();
         this.normalizedIdMap = new ConcurrentHashMap<>();
+        this.transcriptToGeneMapper = new TranscriptToGeneMapper();
     }
     
     /**
@@ -161,19 +163,22 @@ public class SpeciesSequenceIndex {
      * Build transcript-to-gene mapping using TranscriptToGeneMapper
      */
     private void buildTranscriptGeneMapping() {
-        TranscriptToGeneMapper mapper = new TranscriptToGeneMapper();
-        
-        for (String transcriptId : allSequenceIds) {
-            String geneId = mapper.mapTranscriptToGene(transcriptId);
-            if (geneId != null && !geneId.equals(transcriptId)) {
-                transcriptToGene.put(transcriptId, geneId);
+        File annotationFile = speciesInfo.getAnnotationFile();
+        if (annotationFile != null && annotationFile.isFile()) {
+            transcriptToGeneMapper.loadFromGFF3(annotationFile);
+        }
+
+        for (String sequenceId : allSequenceIds) {
+            String geneId = transcriptToGeneMapper.mapTranscriptToGene(sequenceId);
+            if (geneId != null && !geneId.trim().isEmpty() && !geneId.equals(sequenceId)) {
+                transcriptToGene.put(sequenceId, geneId);
                 allGeneIds.add(geneId);
                 
                 // Build reverse mapping
-                geneToTranscripts.computeIfAbsent(geneId, k -> ConcurrentHashMap.newKeySet()).add(transcriptId);
+                geneToTranscripts.computeIfAbsent(geneId, k -> ConcurrentHashMap.newKeySet()).add(sequenceId);
             } else {
                 // Consider it a gene ID if no mapping found
-                allGeneIds.add(transcriptId);
+                allGeneIds.add(sequenceId);
             }
         }
     }
@@ -234,29 +239,40 @@ public class SpeciesSequenceIndex {
      * Enhanced sequence ID search with partial matching support
      */
     public boolean containsSequenceIdFlexible(String queryId) {
+        return findFlexibleMatch(queryId) != null;
+    }
+
+    /**
+     * Find the actual sequence ID matched by flexible matching rules.
+     */
+    public String findFlexibleMatch(String queryId) {
         if (!indexBuilt) buildIndex();
+        if (queryId == null || queryId.trim().isEmpty()) {
+            return null;
+        }
         
         // Direct exact match
         if (allSequenceIds.contains(queryId)) {
-            return true;
+            return queryId;
         }
         
         // Try with common suffixes (.t1, .1, etc.)
         String[] commonSuffixes = {".t1", ".1", "_t1", "_transcript_1"};
         for (String suffix : commonSuffixes) {
-            if (allSequenceIds.contains(queryId + suffix)) {
-                return true;
+            String candidate = queryId + suffix;
+            if (allSequenceIds.contains(candidate)) {
+                return candidate;
             }
         }
         
         // Try partial prefix matching
         for (String seqId : allSequenceIds) {
             if (seqId.startsWith(queryId + ".") || seqId.startsWith(queryId + "_")) {
-                return true;
+                return seqId;
             }
         }
         
-        return false;
+        return null;
     }
     
     /**
@@ -278,6 +294,28 @@ public class SpeciesSequenceIndex {
         }
         
         return null;
+    }
+
+    /**
+     * Resolve a matched sequence ID to its gene ID whenever possible.
+     */
+    public String resolveGeneId(String sequenceId) {
+        if (!indexBuilt) buildIndex();
+        if (sequenceId == null || sequenceId.trim().isEmpty()) {
+            return sequenceId;
+        }
+
+        String geneId = transcriptToGene.get(sequenceId);
+        if (geneId != null && !geneId.trim().isEmpty()) {
+            return geneId;
+        }
+
+        geneId = transcriptToGeneMapper.mapTranscriptToGene(sequenceId);
+        if (geneId != null && !geneId.trim().isEmpty()) {
+            return geneId;
+        }
+
+        return sequenceId;
     }
     
     /**

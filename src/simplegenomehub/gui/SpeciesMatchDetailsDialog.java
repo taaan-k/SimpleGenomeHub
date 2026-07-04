@@ -31,7 +31,7 @@ public class SpeciesMatchDetailsDialog extends JDialog {
     private JButton closeButton;
     
     public SpeciesMatchDetailsDialog(Dialog parent, SpeciesMatchResult result) {
-        super(parent, "Species Match Details", true);
+        super(parent, "Species Match Details", false);
         this.result = result;
         
         initializeComponents();

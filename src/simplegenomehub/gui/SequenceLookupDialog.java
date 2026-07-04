@@ -184,13 +184,33 @@ public class SequenceLookupDialog extends JDialog {
         }
 
         // Input panel
-        JPanel inputPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JPanel inputPanel = new JPanel(new BorderLayout(10, 0));
         inputPanel.setBorder(new TitledBorder("Sequence ID Lookup"));
-        inputPanel.add(new JLabel("ID:"));
-        inputPanel.add(new JScrollPane(idInputArea));
-        inputPanel.add(geneSetComboBox);
-        inputPanel.add(searchButton);
-        inputPanel.add(clearButton);
+
+        JScrollPane idScrollPane = new JScrollPane(idInputArea);
+
+        JPanel idPanel = new JPanel(new BorderLayout(6, 0));
+        idPanel.setOpaque(false);
+        idPanel.add(new JLabel("ID:"), BorderLayout.WEST);
+        idPanel.add(idScrollPane, BorderLayout.CENTER);
+
+        JPanel controlPanel = new JPanel();
+        controlPanel.setOpaque(false);
+        controlPanel.setLayout(new BoxLayout(controlPanel, BoxLayout.Y_AXIS));
+
+        geneSetComboBox.setAlignmentX(Component.LEFT_ALIGNMENT);
+        controlPanel.add(geneSetComboBox);
+        controlPanel.add(Box.createVerticalStrut(8));
+
+        JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+        actionPanel.setOpaque(false);
+        actionPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        actionPanel.add(searchButton);
+        actionPanel.add(clearButton);
+        controlPanel.add(actionPanel);
+
+        inputPanel.add(idPanel, BorderLayout.CENTER);
+        inputPanel.add(controlPanel, BorderLayout.EAST);
 
         panel.add(speciesPanel, BorderLayout.NORTH);
         panel.add(inputPanel, BorderLayout.CENTER);

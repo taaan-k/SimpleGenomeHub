@@ -148,8 +148,9 @@ public class GenomeComparePanel extends JPanel {
         });
     }
 
-    private JPanel createRightPanel() {
-        JPanel rightPanel = new JPanel(new BorderLayout(0, 12));
+    private JComponent createRightPanel() {
+        RightScrollablePanel rightPanel = new RightScrollablePanel();
+        rightPanel.setLayout(new BorderLayout(0, 12));
         rightPanel.add(createSelectedGenomesPanel(), BorderLayout.NORTH);
 
         JPanel centerPanel = new JPanel(new BorderLayout(0, 12));
@@ -163,7 +164,12 @@ public class GenomeComparePanel extends JPanel {
         rightPanel.add(centerPanel, BorderLayout.CENTER);
         rightPanel.add(createStartPanel(), BorderLayout.SOUTH);
 
-        return rightPanel;
+        JScrollPane rightScrollPane = new JScrollPane(rightPanel);
+        rightScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        rightScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        rightScrollPane.getVerticalScrollBar().setUnitIncrement(16);
+        rightScrollPane.setBorder(BorderFactory.createEmptyBorder());
+        return rightScrollPane;
     }
 
     private JPanel createSelectedGenomesPanel() {
@@ -190,60 +196,49 @@ public class GenomeComparePanel extends JPanel {
     }
 
     private JPanel createHighlightPanel() {
-        JPanel panel = new JPanel(new GridBagLayout());
+        JPanel panel = new JPanel(new BorderLayout(0, 6));
         panel.setBorder(new EmptyBorder(4, 0, 0, 0));
 
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        gbc.anchor = GridBagConstraints.WEST;
-        gbc.insets = new Insets(0, 0, 6, 8);
-        panel.add(new JLabel("Gene Highlight List"), gbc);
+        JPanel labelPanel = new JPanel(new GridLayout(1, 2, 12, 0));
+        labelPanel.setOpaque(false);
+        labelPanel.add(new JLabel("Gene Highlight List"));
+        labelPanel.add(new JLabel("Gene Set"));
+        panel.add(labelPanel, BorderLayout.NORTH);
 
-        gbc.gridx = 1;
-        gbc.weightx = 0.35;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.insets = new Insets(0, 0, 6, 0);
-        panel.add(new JLabel("Gene Set"), gbc);
+        JPanel contentPanel = new JPanel(new GridLayout(1, 2, 12, 0));
+        contentPanel.setOpaque(false);
 
-        gbc.gridx = 0;
-        gbc.gridy = 1;
-        gbc.weightx = 0.65;
-        gbc.weighty = 1.0;
-        gbc.fill = GridBagConstraints.BOTH;
-        gbc.insets = new Insets(0, 0, 0, 8);
-        highlightGeneArea = new JTextArea(6, 28);
+        highlightGeneArea = new JTextArea(6, 18);
         highlightGeneArea.setLineWrap(false);
         highlightGeneArea.setWrapStyleWord(false);
         highlightGeneArea.setFont(SimpleGenomeHubStyle.FONT_MONOSPACED_PLAIN_12);
         JScrollPane highlightScrollPane = new JScrollPane(highlightGeneArea);
         int highlightHeight = 30 * 3;
-        highlightScrollPane.setPreferredSize(new Dimension(420, highlightHeight));
-        panel.add(highlightScrollPane, gbc);
+        highlightScrollPane.setPreferredSize(new Dimension(220, highlightHeight));
+        contentPanel.add(highlightScrollPane);
 
         geneSetComboBox = new JComboBox<>();
-        geneSetComboBox.setPreferredSize(new Dimension(260, 30));
+        geneSetComboBox.setPrototypeDisplayValue("Selected Set");
         availableGeneSets = new ArrayList<>();
 
-        JLabel geneSetHintLabel = new JLabel("Links for genes in the list/set will be highlighted.");
-        geneSetHintLabel.setFont(SimpleGenomeHubStyle.italic(geneSetHintLabel.getFont(), 11f));
-        geneSetHintLabel.setForeground(Color.GRAY);
-
-        JPanel geneSetPanel = new JPanel();
+        JPanel geneSetPanel = new JPanel(new BorderLayout(0, 4));
         geneSetPanel.setOpaque(false);
-        geneSetPanel.setLayout(new BoxLayout(geneSetPanel, BoxLayout.Y_AXIS));
-        geneSetComboBox.setAlignmentX(Component.LEFT_ALIGNMENT);
-        geneSetHintLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        geneSetPanel.add(geneSetComboBox);
-        geneSetPanel.add(geneSetHintLabel);
+        geneSetPanel.add(geneSetComboBox, BorderLayout.NORTH);
 
-        gbc.gridx = 1;
-        gbc.weightx = 0.35;
-        gbc.weighty = 0.0;
-        gbc.anchor = GridBagConstraints.NORTHWEST;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.insets = new Insets(0, 0, 0, 0);
-        panel.add(geneSetPanel, gbc);
+        JTextArea geneSetHintArea = new JTextArea("Links for genes in the list/set will be highlighted.");
+        geneSetHintArea.setEditable(false);
+        geneSetHintArea.setOpaque(false);
+        geneSetHintArea.setLineWrap(true);
+        geneSetHintArea.setWrapStyleWord(true);
+        geneSetHintArea.setFocusable(false);
+        geneSetHintArea.setBorder(BorderFactory.createEmptyBorder());
+        geneSetHintArea.setColumns(18);
+        geneSetHintArea.setFont(SimpleGenomeHubStyle.italic(geneSetHintArea.getFont(), 11f));
+        geneSetHintArea.setForeground(Color.GRAY);
+        geneSetPanel.add(geneSetHintArea, BorderLayout.CENTER);
+
+        contentPanel.add(geneSetPanel);
+        panel.add(contentPanel, BorderLayout.CENTER);
 
         refreshGeneSetOptions();
         geneSetComboBox.addActionListener(e -> applySelectedGeneSet());
@@ -1033,6 +1028,33 @@ public class GenomeComparePanel extends JPanel {
             }
 
             return component;
+        }
+    }
+
+    private static final class RightScrollablePanel extends JPanel implements Scrollable {
+        @Override
+        public Dimension getPreferredScrollableViewportSize() {
+            return getPreferredSize();
+        }
+
+        @Override
+        public int getScrollableUnitIncrement(Rectangle visibleRect, int orientation, int direction) {
+            return 20;
+        }
+
+        @Override
+        public int getScrollableBlockIncrement(Rectangle visibleRect, int orientation, int direction) {
+            return orientation == SwingConstants.VERTICAL ? visibleRect.height : visibleRect.width;
+        }
+
+        @Override
+        public boolean getScrollableTracksViewportWidth() {
+            return true;
+        }
+
+        @Override
+        public boolean getScrollableTracksViewportHeight() {
+            return false;
         }
     }
 

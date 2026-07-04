@@ -81,7 +81,7 @@ public class AnnotationImportDialog extends JDialog {
      * Constructor
      */
     public AnnotationImportDialog(Window parent, SpeciesInfo species) {
-        super(parent, "Import Functional Annotations - " + species.getSpeciesName(), ModalityType.APPLICATION_MODAL);
+        super(parent, "Import Functional Annotations - " + species.getSpeciesName(), ModalityType.MODELESS);
         this.targetSpecies = species;
         this.annotationData = species.getFunctionalAnnotations();
         
@@ -96,10 +96,10 @@ public class AnnotationImportDialog extends JDialog {
         setupLayout();
         setupEventHandlers();
         
-        setSize(750, 650);
+        setSize(750, 700);
         setLocationRelativeTo(parent);
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
-        setMinimumSize(new Dimension(700, 600));
+        setMinimumSize(new Dimension(700, 650));
     }
     
     /**
@@ -183,6 +183,8 @@ public class AnnotationImportDialog extends JDialog {
         importButton = new JButton("Import Annotations");
         cancelButton = new JButton("Cancel");
         importButton.setEnabled(false);
+
+        alignActionButtonSizes();
         
         // Setup drag and drop for file fields
         setupDragAndDrop();
@@ -242,7 +244,7 @@ public class AnnotationImportDialog extends JDialog {
         panel.setBorder(new TitledBorder("Annotation Files"));
         panel.setLayout(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.insets = new Insets(3, 5, 3, 5);
         
         // Annotation type selection with radio buttons
         gbc.gridx = 0; gbc.gridy = 0; gbc.anchor = GridBagConstraints.NORTHWEST;
@@ -265,7 +267,7 @@ public class AnnotationImportDialog extends JDialog {
         gbc.gridx = 1; gbc.weightx = 1.0; gbc.fill = GridBagConstraints.HORIZONTAL;
         panel.add(annotationFileField, gbc);
         
-        gbc.gridx = 2; gbc.weightx = 0; gbc.fill = GridBagConstraints.NONE;
+        gbc.gridx = 2; gbc.weightx = 0; gbc.fill = GridBagConstraints.NONE; gbc.anchor = GridBagConstraints.EAST;
         panel.add(browseAnnotationButton, gbc);
         
         // Delimiter selection
@@ -285,13 +287,16 @@ public class AnnotationImportDialog extends JDialog {
         gbc.gridx = 1; gbc.weightx = 1.0; gbc.fill = GridBagConstraints.HORIZONTAL;
         panel.add(oboFileField, gbc);
         
-        gbc.gridx = 2; gbc.weightx = 0; gbc.fill = GridBagConstraints.NONE;
+        gbc.gridx = 2; gbc.weightx = 0; gbc.fill = GridBagConstraints.NONE; gbc.anchor = GridBagConstraints.EAST;
         panel.add(browseOboButton, gbc);
 
         gbc.gridx = 1; gbc.gridy = 4; gbc.gridwidth = 2; gbc.weightx = 1.0; gbc.fill = GridBagConstraints.HORIZONTAL;
-        JPanel oboControlPanel = new JPanel(new BorderLayout(8, 0));
+        gbc.insets = new Insets(1, 5, 2, 5);
+        JPanel oboControlPanel = new JPanel(new BorderLayout(6, 0));
+        oboControlPanel.setOpaque(false);
         oboControlPanel.add(oboStatusLabel, BorderLayout.CENTER);
         JPanel oboButtonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
+        oboButtonPanel.setOpaque(false);
         oboButtonPanel.add(downloadOboButton);
         oboButtonPanel.add(updateOboButton);
         oboControlPanel.add(oboButtonPanel, BorderLayout.EAST);
@@ -299,18 +304,21 @@ public class AnnotationImportDialog extends JDialog {
         
         // KEGG reference file (conditional)
         gbc.gridx = 0; gbc.gridy = 5; gbc.gridwidth = 1; gbc.anchor = GridBagConstraints.WEST;
+        gbc.insets = new Insets(2, 5, 2, 5);
         panel.add(keggRefLabel, gbc);
         
         gbc.gridx = 1; gbc.weightx = 1.0; gbc.fill = GridBagConstraints.HORIZONTAL;
         JPanel keggModePanel = new JPanel(new BorderLayout(5, 0));
+        keggModePanel.setOpaque(false);
         keggModePanel.add(keggBackendModeCombo, BorderLayout.WEST);
         keggModePanel.add(keggBackendTypeCombo, BorderLayout.CENTER);
         panel.add(keggModePanel, gbc);
         
-        gbc.gridx = 2; gbc.weightx = 0; gbc.fill = GridBagConstraints.NONE;
+        gbc.gridx = 2; gbc.weightx = 0; gbc.fill = GridBagConstraints.NONE; gbc.anchor = GridBagConstraints.EAST;
         panel.add(downloadKeggBackendButton, gbc);
 
         gbc.gridx = 0; gbc.gridy = 6; gbc.gridwidth = 1; gbc.anchor = GridBagConstraints.WEST;
+        gbc.insets = new Insets(1, 5, 2, 5);
         panel.add(new JLabel("Backend File:"), gbc);
 
         gbc.gridx = 1; gbc.weightx = 1.0; gbc.fill = GridBagConstraints.HORIZONTAL;
@@ -318,11 +326,14 @@ public class AnnotationImportDialog extends JDialog {
 
         gbc.gridx = 2; gbc.weightx = 0; gbc.fill = GridBagConstraints.NONE;
         JPanel keggActionPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
+        keggActionPanel.setOpaque(false);
         keggActionPanel.add(browseKeggRefButton);
         keggActionPanel.add(updateKeggBackendButton);
         panel.add(keggActionPanel, gbc);
 
         gbc.gridx = 1; gbc.gridy = 7; gbc.gridwidth = 2; gbc.weightx = 1.0; gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.insets = new Insets(1, 5, 3, 5);
+        gbc.anchor = GridBagConstraints.WEST;
         panel.add(keggStatusLabel, gbc);
         
         // File format info - optimized for minimum 3 lines visibility
@@ -372,9 +383,51 @@ public class AnnotationImportDialog extends JDialog {
         JScrollPane scrollPane = new JScrollPane(previewArea);
         scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
         scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        scrollPane.setPreferredSize(new Dimension(680, 240));
         
         panel.add(scrollPane, BorderLayout.CENTER);
         return panel;
+    }
+
+    private void alignActionButtonSizes() {
+        Dimension compactButtonSize = getMaxButtonSize(
+            browseAnnotationButton,
+            browseOboButton,
+            updateOboButton,
+            updateKeggBackendButton
+        );
+        setUniformButtonSize(compactButtonSize,
+            browseAnnotationButton,
+            browseOboButton,
+            updateOboButton,
+            updateKeggBackendButton
+        );
+
+        Dimension keggPrimaryButtonSize = getMaxButtonSize(browseKeggRefButton, downloadKeggBackendButton);
+        keggPrimaryButtonSize.height = Math.max(keggPrimaryButtonSize.height, compactButtonSize.height);
+        setUniformButtonSize(keggPrimaryButtonSize, browseKeggRefButton, downloadKeggBackendButton);
+
+        Dimension downloadButtonSize = getMaxButtonSize(downloadOboButton, downloadKeggBackendButton);
+        downloadButtonSize.height = Math.max(downloadButtonSize.height, compactButtonSize.height);
+        setUniformButtonSize(downloadButtonSize, downloadOboButton);
+    }
+
+    private Dimension getMaxButtonSize(JButton... buttons) {
+        int width = 0;
+        int height = 30;
+        for (JButton button : buttons) {
+            Dimension preferredSize = button.getPreferredSize();
+            width = Math.max(width, preferredSize.width);
+            height = Math.max(height, preferredSize.height);
+        }
+        return new Dimension(width, height);
+    }
+
+    private void setUniformButtonSize(Dimension size, JButton... buttons) {
+        for (JButton button : buttons) {
+            button.setPreferredSize(size);
+            button.setMinimumSize(size);
+        }
     }
     
     /**

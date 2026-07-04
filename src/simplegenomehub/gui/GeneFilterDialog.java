@@ -12,6 +12,8 @@ import biocjava.bioDoer.JIGplotToolkit.HeatMap.HeatmapControl2;
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
 import java.awt.*;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.PrintWriter;
@@ -28,6 +30,10 @@ import java.util.logging.Logger;
 public class GeneFilterDialog extends JDialog {
     
     private static final Logger logger = Logger.getLogger(GeneFilterDialog.class.getName());
+    private static final String GENE_INPUT_HINT_TEXT =
+        "## Enter gene IDs, one per line\n" +
+        "## Or separate IDs with spaces/commas\n";
+    private static final Color FILTER_OPTION_CELL_BACKGROUND = new Color(236, 241, 249);
     
     private SpeciesInfo species;
     private ExpressionMatrix matrix;
@@ -51,6 +57,7 @@ public class GeneFilterDialog extends JDialog {
     private Set<String> filteredGenes;
     private Map<String, Map<String, Double>> filteredData;
     private List<File> availableGeneSetFiles;
+    private final List<JPanel> filterOptionCells = new ArrayList<>();
     
     /**
      * Constructor
@@ -66,8 +73,9 @@ public class GeneFilterDialog extends JDialog {
         initializeComponents();
         setupLayout();
         setupEventHandlers();
+        installOptionCellBackgroundRefresh();
         
-        setSize(800, 800); // Increased height from 700 to 800
+        setSize(900, 850);
         setLocationRelativeTo(parent);
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         
@@ -85,6 +93,7 @@ public class GeneFilterDialog extends JDialog {
         geneListArea.setWrapStyleWord(true);
         geneListArea.setFont(SimpleGenomeHubStyle.FONT_MONOSPACED_PLAIN_12);
         geneListArea.setToolTipText("Enter gene IDs, one per line or separated by spaces/commas");
+        geneListArea.setText(GENE_INPUT_HINT_TEXT);
         
         // Filter options
         includeRadio = new JRadioButton("Include matching genes", true);
@@ -123,30 +132,30 @@ public class GeneFilterDialog extends JDialog {
      * Setup layout
      */
     private void setupLayout() {
-        setLayout(new BorderLayout(10, 10));
+        setLayout(new BorderLayout(10, 4));
         
         // Top: Instructions
         JLabel instructionLabel = new JLabel(
             "<html><b>Gene Filter</b> - Filter expression matrix by gene IDs<br>" + 
             "Enter gene IDs and configure filter options below.</html>");
-        instructionLabel.setBorder(BorderFactory.createEmptyBorder(10, 10, 5, 10));
+        instructionLabel.setBorder(BorderFactory.createEmptyBorder(8, 10, 2, 10));
         add(instructionLabel, BorderLayout.NORTH);
         
         // Center: Main content panel with proper height distribution
-        JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
-        mainPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        JPanel mainPanel = new JPanel(new BorderLayout(10, 6));
+        mainPanel.setBorder(BorderFactory.createEmptyBorder(6, 10, 2, 10));
         
         // Top part: Gene Input and Filter Options in a split layout
         JPanel topPanel = new JPanel(new BorderLayout(10, 0));
         
         // Gene Input
         JPanel geneInputPanel = createGeneInputPanel();
-        geneInputPanel.setPreferredSize(new Dimension(0, 180)); // Fixed height for gene input
+        geneInputPanel.setPreferredSize(new Dimension(0, 150));
         topPanel.add(geneInputPanel, BorderLayout.NORTH);
         
         // Filter Options
         JPanel optionsPanel = createFilterOptionsPanel();
-        optionsPanel.setPreferredSize(new Dimension(0, 120)); // Give checkbox row enough vertical space
+        optionsPanel.setPreferredSize(new Dimension(0, 92));
         topPanel.add(optionsPanel, BorderLayout.SOUTH);
         
         mainPanel.add(topPanel, BorderLayout.NORTH);
@@ -159,13 +168,12 @@ public class GeneFilterDialog extends JDialog {
         
         // Bottom: Status and buttons
         JPanel bottomPanel = new JPanel(new BorderLayout(5, 5));
-        bottomPanel.setBorder(BorderFactory.createEmptyBorder(5, 10, 10, 10));
+        bottomPanel.setBorder(BorderFactory.createEmptyBorder(0, 10, 6, 10));
         
         bottomPanel.add(statusLabel, BorderLayout.WEST);
         
-        JPanel buttonPanel = new JPanel(new FlowLayout());
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         buttonPanel.add(clearButton);
-        buttonPanel.add(Box.createHorizontalStrut(10));
         buttonPanel.add(heatmapButton);
         buttonPanel.add(exportFilteredButton);
         bottomPanel.add(buttonPanel, BorderLayout.EAST);
@@ -180,11 +188,11 @@ public class GeneFilterDialog extends JDialog {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBorder(new TitledBorder("Gene Input"));
 
-        Dimension comboPreferredSize = importGeneSetComboBox.getPreferredSize();
-        Dimension buttonPreferredSize = applyFilterButton.getPreferredSize();
-        int controlWidth = Math.max(comboPreferredSize.width, 160);
-        int controlHeight = Math.max(buttonPreferredSize.height, 28);
-        Dimension alignedControlSize = new Dimension(controlWidth, controlHeight);
+        int controlHeight = Math.max(
+            Math.max(importGeneSetComboBox.getPreferredSize().height, applyFilterButton.getPreferredSize().height),
+            28
+        );
+        Dimension alignedControlSize = new Dimension(150, controlHeight);
 
         importGeneSetComboBox.setPreferredSize(alignedControlSize);
         importGeneSetComboBox.setMinimumSize(alignedControlSize);
@@ -204,20 +212,13 @@ public class GeneFilterDialog extends JDialog {
         // East: Gene Set selector above Search, with matched control height
         JPanel buttonPanel = new JPanel();
         buttonPanel.setLayout(new BoxLayout(buttonPanel, BoxLayout.Y_AXIS));
-        buttonPanel.setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 0)); // Left padding
+        buttonPanel.setBorder(BorderFactory.createEmptyBorder(0, 3, 0, 0));
 
         buttonPanel.add(importGeneSetComboBox);
         buttonPanel.add(Box.createVerticalStrut(6));
         buttonPanel.add(applyFilterButton);
 
         panel.add(buttonPanel, BorderLayout.EAST);
-
-        // South: Hint label
-        JLabel hintLabel = new JLabel("Enter gene IDs (one per line or separated by spaces/commas)");
-        hintLabel.setFont(SimpleGenomeHubStyle.italic(hintLabel.getFont(), 11f));
-        hintLabel.setForeground(Color.GRAY);
-        hintLabel.setBorder(BorderFactory.createEmptyBorder(5, 5, 0, 5));
-        panel.add(hintLabel, BorderLayout.SOUTH);
 
         return panel;
     }
@@ -228,7 +229,7 @@ public class GeneFilterDialog extends JDialog {
     private JPanel createResultsPanel() {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBorder(new TitledBorder("Filter Results"));
-        panel.setPreferredSize(new Dimension(0, 300)); // Set minimum preferred height
+        panel.setPreferredSize(new Dimension(0, 350));
         
         // Add the enhanced table directly
         panel.add(resultTable, BorderLayout.CENTER);
@@ -242,25 +243,52 @@ public class GeneFilterDialog extends JDialog {
     private JPanel createFilterOptionsPanel() {
         JPanel panel = new JPanel();
         panel.setBorder(new TitledBorder("Filter Options"));
-        panel.setLayout(new BorderLayout());
+        panel.setLayout(new GridLayout(2, 1, 0, 6));
         
-        // Radio buttons for include/exclude
-        JPanel radioPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 5));
-        radioPanel.setBorder(BorderFactory.createEmptyBorder(4, 5, 2, 5));
-        radioPanel.add(includeRadio);
-        radioPanel.add(Box.createHorizontalStrut(20)); // Add spacing
-        radioPanel.add(excludeRadio);
-        panel.add(radioPanel, BorderLayout.NORTH);
+        JPanel radioPanel = new JPanel(new GridLayout(1, 2, 6, 0));
+        radioPanel.setOpaque(false);
+        radioPanel.add(createOptionCell(includeRadio));
+        radioPanel.add(createOptionCell(excludeRadio));
+        panel.add(radioPanel);
         
-        // Checkboxes in a grid layout to ensure proper width allocation
-        JPanel checkboxPanel = new JPanel(new GridLayout(1, 3, 10, 0));
-        checkboxPanel.setBorder(BorderFactory.createEmptyBorder(4, 10, 8, 10));
-        checkboxPanel.add(caseInsensitiveCheckBox);
-        checkboxPanel.add(partialMatchCheckBox);
-        checkboxPanel.add(preserveOrderCheckBox);
-        panel.add(checkboxPanel, BorderLayout.CENTER);
+        JPanel checkboxPanel = new JPanel(new GridLayout(1, 3, 6, 0));
+        checkboxPanel.setOpaque(false);
+        checkboxPanel.add(createOptionCell(caseInsensitiveCheckBox));
+        checkboxPanel.add(createOptionCell(partialMatchCheckBox));
+        checkboxPanel.add(createOptionCell(preserveOrderCheckBox));
+        panel.add(checkboxPanel);
         
         return panel;
+    }
+
+    private JPanel createOptionCell(AbstractButton optionButton) {
+        JPanel cell = new JPanel(new BorderLayout());
+        cell.setBorder(BorderFactory.createEmptyBorder(2, 8, 2, 8));
+
+        optionButton.setOpaque(false);
+        optionButton.setBorderPainted(false);
+        optionButton.setContentAreaFilled(false);
+
+        cell.add(optionButton, BorderLayout.WEST);
+        filterOptionCells.add(cell);
+        return cell;
+    }
+
+    private void installOptionCellBackgroundRefresh() {
+        applyFilterOptionCellBackgrounds();
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowOpened(WindowEvent e) {
+                applyFilterOptionCellBackgrounds();
+            }
+        });
+    }
+
+    private void applyFilterOptionCellBackgrounds() {
+        for (JPanel cell : filterOptionCells) {
+            cell.setOpaque(true);
+            cell.setBackground(FILTER_OPTION_CELL_BACKGROUND);
+        }
     }
     
     /**
@@ -382,13 +410,20 @@ public class GeneFilterDialog extends JDialog {
      */
     private Set<String> parseGeneList(String text) {
         Set<String> genes = new LinkedHashSet<>();
-        
-        // Split by various delimiters
-        String[] tokens = text.split("[\\n\\r\\s,;\\t]+");
-        for (String token : tokens) {
-            token = token.trim();
-            if (!token.isEmpty()) {
-                genes.add(token);
+
+        String[] lines = text.split("\\r?\\n");
+        for (String line : lines) {
+            String trimmedLine = line.trim();
+            if (trimmedLine.isEmpty() || trimmedLine.startsWith("#")) {
+                continue;
+            }
+
+            String[] tokens = trimmedLine.split("[\\s,;\\t]+");
+            for (String token : tokens) {
+                token = token.trim();
+                if (!token.isEmpty()) {
+                    genes.add(token);
+                }
             }
         }
         
@@ -401,14 +436,21 @@ public class GeneFilterDialog extends JDialog {
     private List<String> parseGeneListPreserveOrder(String text) {
         List<String> genes = new ArrayList<>();
         Set<String> seen = new HashSet<>();
-        
-        // Split by various delimiters
-        String[] tokens = text.split("[\\n\\r\\s,;\\t]+");
-        for (String token : tokens) {
-            token = token.trim();
-            if (!token.isEmpty() && !seen.contains(token)) {
-                genes.add(token);
-                seen.add(token);
+
+        String[] lines = text.split("\\r?\\n");
+        for (String line : lines) {
+            String trimmedLine = line.trim();
+            if (trimmedLine.isEmpty() || trimmedLine.startsWith("#")) {
+                continue;
+            }
+
+            String[] tokens = trimmedLine.split("[\\s,;\\t]+");
+            for (String token : tokens) {
+                token = token.trim();
+                if (!token.isEmpty() && !seen.contains(token)) {
+                    genes.add(token);
+                    seen.add(token);
+                }
             }
         }
         
@@ -633,7 +675,7 @@ public class GeneFilterDialog extends JDialog {
      * Clear all inputs and results
      */
     private void clearAll() {
-        geneListArea.setText("");
+        geneListArea.setText(GENE_INPUT_HINT_TEXT);
         resultTable.setData(new ArrayList<>()); // Clear table data
         filteredGenes.clear();
         filteredData.clear();

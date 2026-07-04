@@ -1061,9 +1061,14 @@ public class MultipleSyntenyPanel extends JPanel {
 
                 @Override
                 protected void done() {
-                    startButton.setEnabled(true);
-                    try {
-                        MultipleSyntenyService.Result result = get();
+                        startButton.setEnabled(true);
+                        try {
+                            MultipleSyntenyService.Result result = get();
+                            try {
+                                MultipleSyntenyResultViewerDialog.exportPreviewImage(result.getOutputDir());
+                            } catch (IOException previewEx) {
+                                appendLogLine("Preview export failed: " + previewEx.getMessage());
+                            }
                         appendLogLine("Multiple Synteny completed.");
                         appendLogLine("Batch folder: " + result.getOutputDir().getAbsolutePath());
                         for (MultipleSyntenyService.PairResult pairResult : result.getPairResults()) {

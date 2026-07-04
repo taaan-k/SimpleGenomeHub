@@ -128,15 +128,40 @@ public final class DualSyntenyPlotLauncher {
     }
 
     private static void launchPlotter(VisualizationInputs inputs, File highlightFile) throws Exception {
-        DualSyntenyPlotter plotter = new DualSyntenyPlotter();
-        configurePlotter(plotter, inputs, highlightFile);
+        DualSyntenyPlotter plotter = createConfiguredPlotter(inputs, highlightFile);
+        List<java.awt.Window> previousWindows = DualSyntenyPreviewExporter.captureWindows();
         try {
             plotter.plot();
+            Thread previewExportThread = new Thread(() -> {
+                try {
+                    DualSyntenyPreviewExporter.exportPreview(inputs.outputDir, previousWindows);
+                } catch (IOException previewEx) {
+                    logger.log(Level.WARNING,
+                        "Failed to export Dual Synteny preview image for " + inputs.outputDir.getAbsolutePath(),
+                        previewEx
+                    );
+                }
+            }, "dual-synteny-preview-export");
+            previewExportThread.setDaemon(true);
+            previewExportThread.start();
         } catch (Exception ex) {
             String message = buildLaunchFailureMessage(inputs, highlightFile, ex);
             logger.log(Level.SEVERE, message, ex);
             throw new IOException(message, ex);
         }
+    }
+
+    static DualSyntenyPlotter createPlotterFromOutputDirectory(File outputDir, boolean reorderChromosomes)
+        throws IOException {
+        VisualizationInputs inputs = prepareVisualizationInputsFromOutputDirectory(outputDir, reorderChromosomes);
+        File highlightFile = sanitizeHighlightGeneListFile(inputs);
+        return createConfiguredPlotter(inputs, highlightFile);
+    }
+
+    private static DualSyntenyPlotter createConfiguredPlotter(VisualizationInputs inputs, File highlightFile) {
+        DualSyntenyPlotter plotter = new DualSyntenyPlotter();
+        configurePlotter(plotter, inputs, highlightFile);
+        return plotter;
     }
 
     static void configurePlotter(DualSyntenyPlotter plotter, VisualizationInputs inputs, File highlightFile) {

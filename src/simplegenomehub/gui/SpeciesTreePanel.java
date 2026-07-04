@@ -52,6 +52,37 @@ public class SpeciesTreePanel extends JPanel {
     public interface SelectionListener {
         void onSpeciesSelected(SpeciesInfo species);
     }
+
+    public enum SelectionKind {
+        NONE,
+        ADVANCE_CIRCOS_RESULT,
+        GENOME_COMPARE_RESULT,
+        MULTIPLE_SYNTENY_RESULT
+    }
+
+    public static final class SelectionContext {
+        private final SpeciesInfo species;
+        private final File selectedFile;
+        private final SelectionKind selectionKind;
+
+        private SelectionContext(SpeciesInfo species, File selectedFile, SelectionKind selectionKind) {
+            this.species = species;
+            this.selectedFile = selectedFile;
+            this.selectionKind = selectionKind == null ? SelectionKind.NONE : selectionKind;
+        }
+
+        public SpeciesInfo getSpecies() {
+            return species;
+        }
+
+        public File getSelectedFile() {
+            return selectedFile;
+        }
+
+        public SelectionKind getSelectionKind() {
+            return selectionKind;
+        }
+    }
     
     /**
      * Constructor
@@ -116,7 +147,7 @@ public class SpeciesTreePanel extends JPanel {
         JButton configButton = SimpleGenomeHubUi.createSoftButton("Config", new Dimension(96, 34));
         configButton.addActionListener(e -> triggerConfiguration());
 
-        JButton importGenomeButton = SimpleGenomeHubUi.createSoftButton("Import Genome", new Dimension(150, 34));
+        JButton importGenomeButton = SimpleGenomeHubUi.createSoftButton("Import Genome", new Dimension(172, 34));
         importGenomeButton.addActionListener(e -> triggerImportGenome());
 
         JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
@@ -343,6 +374,11 @@ public class SpeciesTreePanel extends JPanel {
     public SpeciesInfo getSelectedSpecies() {
         DefaultMutableTreeNode node = (DefaultMutableTreeNode) speciesTree.getLastSelectedPathComponent();
         return getSpeciesFromNode(node);
+    }
+
+    public SelectionContext getCurrentSelectionContext() {
+        DefaultMutableTreeNode node = (DefaultMutableTreeNode) speciesTree.getLastSelectedPathComponent();
+        return buildSelectionContext(node);
     }
     
     /**
@@ -852,6 +888,29 @@ public class SpeciesTreePanel extends JPanel {
             }
         }
         return null;
+    }
+
+    private SelectionContext buildSelectionContext(DefaultMutableTreeNode node) {
+        SpeciesInfo species = getSpeciesFromNode(node);
+        if (node == null) {
+            return new SelectionContext(species, null, SelectionKind.NONE);
+        }
+
+        Object userObject = node.getUserObject();
+        if (userObject instanceof TreeFileNodeData) {
+            TreeFileNodeData data = (TreeFileNodeData) userObject;
+            if (data.isDirectory() && data.isAdvanceCircosProject()) {
+                return new SelectionContext(species, data.getFile(), SelectionKind.ADVANCE_CIRCOS_RESULT);
+            }
+            if (data.isDirectory() && data.isGenomeCompareProject()) {
+                return new SelectionContext(species, data.getFile(), SelectionKind.GENOME_COMPARE_RESULT);
+            }
+            if (data.isDirectory() && data.isMultipleSyntenyProject()) {
+                return new SelectionContext(species, data.getFile(), SelectionKind.MULTIPLE_SYNTENY_RESULT);
+            }
+        }
+
+        return new SelectionContext(species, null, SelectionKind.NONE);
     }
 
     private void addSpeciesChildren(DefaultMutableTreeNode speciesNode, SpeciesInfo species) {

@@ -99,28 +99,31 @@ public class SpeciesIdentificationEngine {
             
             // Level 1: Exact match
             if (index.containsSequenceId(queryId)) {
-                result.addMatch(queryId, queryId, queryId, MatchType.EXACT, 1.0);
+                result.addMatch(queryId, queryId, index.resolveGeneId(queryId), MatchType.EXACT, 1.0);
                 matched = true;
             }
             // Level 2: Flexible match (partial/suffix matching)
-            else if (index.containsSequenceIdFlexible(queryId)) {
-                result.addMatch(queryId, queryId, queryId, MatchType.PATTERN, 0.95);
-                matched = true;
+            else {
+                String flexibleMatch = index.findFlexibleMatch(queryId);
+                if (flexibleMatch != null) {
+                    result.addMatch(queryId, flexibleMatch, index.resolveGeneId(flexibleMatch), MatchType.PATTERN, 0.95);
+                    matched = true;
+                }
             }
             // Level 3: Pattern match
-            else if (enablePatternMatching) {
+            if (!matched && enablePatternMatching) {
                 String patternMatch = index.findByPattern(queryId);
                 if (patternMatch != null) {
-                    result.addMatch(queryId, patternMatch, patternMatch, MatchType.PATTERN, 0.9);
+                    result.addMatch(queryId, patternMatch, index.resolveGeneId(patternMatch), MatchType.PATTERN, 0.9);
                     matched = true;
                 }
             }
             // Level 4: Fuzzy match
-            else if (enableFuzzyMatching) {
+            if (!matched && enableFuzzyMatching) {
                 List<String> fuzzyMatches = index.findByFuzzyMatch(queryId, fuzzyMatchThreshold);
                 if (!fuzzyMatches.isEmpty()) {
                     String bestMatch = fuzzyMatches.get(0); // Take the first (best) match
-                    result.addMatch(queryId, bestMatch, bestMatch, MatchType.FUZZY, fuzzyMatchThreshold);
+                    result.addMatch(queryId, bestMatch, index.resolveGeneId(bestMatch), MatchType.FUZZY, fuzzyMatchThreshold);
                     matched = true;
                 }
             }

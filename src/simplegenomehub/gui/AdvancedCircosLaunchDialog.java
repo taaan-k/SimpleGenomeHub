@@ -4,6 +4,8 @@ import biocjava.bioDoer.JIGplotToolkit.Circos.SuperCircos.AmazingSuperCircos2;
 import simplegenomehub.model.GenomeData;
 import simplegenomehub.model.SpeciesInfo;
 import simplegenomehub.model.SpeciesManager;
+import simplegenomehub.util.fileio.AdvancedCircosPreviewExporter;
+import simplegenomehub.util.fileio.DualSyntenyPreviewExporter;
 import simplegenomehub.util.fileio.CircosTrackGenerator;
 import simplegenomehub.util.fileio.GenomeCompareExistingResultScanner;
 import simplegenomehub.util.fileio.GenomeCompareHighlightedLinkAppender;
@@ -149,18 +151,14 @@ public class AdvancedCircosLaunchDialog extends JDialog {
         panel.setOpaque(false);
         panel.setBorder(BorderFactory.createTitledBorder("Genome Info"));
 
-        JPanel contentPanel = new JPanel();
+        JPanel contentPanel = new JPanel(new BorderLayout(0, 12));
         contentPanel.setOpaque(false);
-        contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
 
         JPanel genomeSelectionPanel = createGenomeSelectionPanel();
-        genomeSelectionPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        contentPanel.add(genomeSelectionPanel);
-        contentPanel.add(Box.createVerticalStrut(12));
+        contentPanel.add(genomeSelectionPanel, BorderLayout.NORTH);
 
         JPanel highlightPanel = createHighlightPanel();
-        highlightPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        contentPanel.add(highlightPanel);
+        contentPanel.add(highlightPanel, BorderLayout.CENTER);
 
         panel.add(contentPanel, BorderLayout.CENTER);
         return panel;
@@ -214,8 +212,8 @@ public class AdvancedCircosLaunchDialog extends JDialog {
         gbc.weighty = 1.0;
         gbc.fill = GridBagConstraints.BOTH;
         JScrollPane geneHighlightScrollPane = new JScrollPane(geneHighlightArea);
-        int geneHighlightHeight = geneSetComboBox.getPreferredSize().height * 3;
-        geneHighlightScrollPane.setPreferredSize(new Dimension(0, geneHighlightHeight));
+        geneHighlightScrollPane.setPreferredSize(new Dimension(0, 108));
+        geneHighlightScrollPane.setMinimumSize(new Dimension(0, 96));
         panel.add(geneHighlightScrollPane, gbc);
 
         gbc.gridy = 2;
@@ -425,6 +423,14 @@ public class AdvancedCircosLaunchDialog extends JDialog {
             ),
             null
         );
+        try {
+            DualSyntenyPreviewExporter.exportPreviewFromOutputDirectory(result.getOutputDir(), false);
+        } catch (Exception previewEx) {
+            logger.log(Level.WARNING,
+                "Failed to export Dual Synteny preview image for " + result.getOutputDir().getAbsolutePath(),
+                previewEx
+            );
+        }
 
         File generatedLinkRegionFile = result.getLinkRegionFile();
         if (generatedLinkRegionFile == null || !generatedLinkRegionFile.isFile()) {
@@ -874,6 +880,14 @@ public class AdvancedCircosLaunchDialog extends JDialog {
 
         circos.readConfigDir(projectDir);
         circos.process();
+        try {
+            AdvancedCircosPreviewExporter.exportPreview(circos, projectDir);
+        } catch (IOException previewEx) {
+            logger.log(Level.WARNING,
+                "Failed to export Advanced Circos preview image for " + projectDir.getAbsolutePath(),
+                previewEx
+            );
+        }
     }
 
     private static final class LinkChoiceItem {

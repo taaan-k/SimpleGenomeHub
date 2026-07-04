@@ -40,7 +40,7 @@ public class AnnotationEditDialog extends JDialog {
      * Constructor
      */
     public AnnotationEditDialog(Window parent, GeneAnnotation annotation) {
-        super(parent, "Edit Annotation", ModalityType.APPLICATION_MODAL);
+        super(parent, "Edit Annotation", ModalityType.MODELESS);
         this.originalAnnotation = annotation;
         
         initializeComponents();

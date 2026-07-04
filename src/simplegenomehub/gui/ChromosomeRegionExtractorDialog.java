@@ -43,13 +43,13 @@ public class ChromosomeRegionExtractorDialog extends JDialog {
     private java.util.List<File> availableRegionSetFiles;
     
     public ChromosomeRegionExtractorDialog(Frame parent, SpeciesInfo speciesInfo) {
-        super(parent, "Chromosome Region Sequence Extractor", true);
+        super(parent, "Chromosome Region Sequence Extractor", Dialog.ModalityType.MODELESS);
         this.speciesInfo = speciesInfo;
         initializeComponents();
         setupLayout();
         setupEventHandlers();
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
-        setSize(800, 700);
+        setSize(1000, 700);
         setLocationRelativeTo(parent);
     }
     
@@ -92,9 +92,12 @@ public class ChromosomeRegionExtractorDialog extends JDialog {
         
         // Action buttons
         extractButton = new JButton("Extract Sequences");
-        extractButton.setBackground(new Color(40, 167, 69));
-        extractButton.setForeground(Color.WHITE);
+        extractButton.setBackground(SimpleGenomeHubStyle.DIALOG_PRIMARY_BUTTON);
+        extractButton.setForeground(SimpleGenomeHubStyle.DIALOG_PRIMARY_BUTTON_TEXT);
+        extractButton.setBorder(BorderFactory.createLineBorder(SimpleGenomeHubStyle.DIALOG_PRIMARY_BUTTON_BORDER, 1));
+        extractButton.setFocusPainted(false);
         extractButton.setFont(SimpleGenomeHubStyle.FONT_SANS_BOLD_12);
+        extractButton.setPreferredSize(new Dimension(160, 36));
         
         // Status components
         progressBar = new JProgressBar();
@@ -148,63 +151,53 @@ public class ChromosomeRegionExtractorDialog extends JDialog {
         regionPanel.add(regionButtonPanel, BorderLayout.NORTH);
         
         JScrollPane regionScrollPane = new JScrollPane(regionListTextArea);
-        regionScrollPane.setPreferredSize(new Dimension(750, 300));
         regionScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         regionScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
         regionPanel.add(regionScrollPane, BorderLayout.CENTER);
-        
-        centerPanel.add(regionPanel, BorderLayout.CENTER);
-        
+
         // Add format cleanup button after layout is complete
         SwingUtilities.invokeLater(() -> addFormatCleanupButton());
-        
+
         // Options panel
-        JPanel optionsPanel = new JPanel(new GridLayout(2, 1, 5, 5));
+        JPanel optionsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 18, 4));
         optionsPanel.setBorder(new TitledBorder("Extraction Options"));
+        optionsPanel.setOpaque(false);
         optionsPanel.add(includeGeneNameCheckBox);
         optionsPanel.add(reverseComplementCheckBox);
+        centerPanel.add(regionPanel, BorderLayout.CENTER);
         centerPanel.add(optionsPanel, BorderLayout.SOUTH);
-        
-        mainPanel.add(centerPanel, BorderLayout.CENTER);
-        
-        // Bottom panel - output and controls
-        JPanel bottomPanel = new JPanel(new BorderLayout());
 
+        JPanel bottomPanel = new JPanel(new BorderLayout(0, 10));
         JPanel outputPreviewPanel = new JPanel(new BorderLayout());
         outputPreviewPanel.setBorder(new TitledBorder("Output"));
         JScrollPane outputScrollPane = new JScrollPane(outputTextArea);
-        outputScrollPane.setPreferredSize(new Dimension(750, 160));
         outputScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         outputScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
         outputPreviewPanel.add(outputScrollPane, BorderLayout.CENTER);
-        bottomPanel.add(outputPreviewPanel, BorderLayout.NORTH);
-        
-        // Output file panel
+
+        JSplitPane contentSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, centerPanel, outputPreviewPanel);
+        contentSplitPane.setResizeWeight(0.72);
+        contentSplitPane.setDividerLocation(430);
+        SimpleGenomeHubUi.styleSplitPane(contentSplitPane);
+        mainPanel.add(contentSplitPane, BorderLayout.CENTER);
+
         JPanel outputPanel = new JPanel(new BorderLayout());
         outputPanel.setBorder(new TitledBorder("Output File"));
         JPanel outputFieldPanel = new JPanel(new BorderLayout());
         outputFieldPanel.add(outputFileField, BorderLayout.CENTER);
-        outputFieldPanel.add(browseOutputButton, BorderLayout.EAST);
+        JPanel outputActionPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        outputActionPanel.add(browseOutputButton);
+        outputActionPanel.add(extractButton);
+        outputFieldPanel.add(outputActionPanel, BorderLayout.EAST);
         outputPanel.add(outputFieldPanel, BorderLayout.CENTER);
-        bottomPanel.add(outputPanel, BorderLayout.CENTER);
-        
-        // Control panel
-        JPanel controlPanel = new JPanel(new BorderLayout());
-        controlPanel.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
-        
-        JPanel buttonPanel = new JPanel(new FlowLayout());
-        buttonPanel.add(extractButton);
-        controlPanel.add(buttonPanel, BorderLayout.CENTER);
-        
-        // Status panel
+
         JPanel statusPanel = new JPanel(new BorderLayout());
         statusPanel.add(progressBar, BorderLayout.NORTH);
         statusPanel.add(statusLabel, BorderLayout.SOUTH);
-        controlPanel.add(statusPanel, BorderLayout.SOUTH);
-        
-        bottomPanel.add(controlPanel, BorderLayout.SOUTH);
+        bottomPanel.add(outputPanel, BorderLayout.NORTH);
+        bottomPanel.add(statusPanel, BorderLayout.SOUTH);
         mainPanel.add(bottomPanel, BorderLayout.SOUTH);
-        
+
         add(mainPanel, BorderLayout.CENTER);
     }
     

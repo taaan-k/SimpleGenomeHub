@@ -150,8 +150,8 @@ public class BlastPanel extends JPanel {
     /**
      * Create compact parameters panel for right side
      */
-    private JPanel createCompactParametersPanel() {
-        JPanel parametersPanel = new JPanel();
+    private JComponent createCompactParametersPanel() {
+        final JPanel parametersPanel = new JPanel();
         parametersPanel.setBorder(new TitledBorder("BLAST Parameters"));
         parametersPanel.setLayout(new GridBagLayout());
         
@@ -195,7 +195,6 @@ public class BlastPanel extends JPanel {
         parametersPanel.add(new JLabel("E-value:"), gbc);
         gbc.gridx = 5;
         evalueField = new JTextField("1e-5", 8);
-        evalueField.setPreferredSize(new Dimension(80, 25));
         parametersPanel.add(evalueField, gbc);
         
         // Row 2: Threads, Max Targets, Short Query Mode
@@ -216,8 +215,23 @@ public class BlastPanel extends JPanel {
         gbc.gridx = 4; gbc.gridwidth = 2;
         shortQueryCheckBox = new JCheckBox("Short Query Mode");
         parametersPanel.add(shortQueryCheckBox, gbc);
-        
-        return parametersPanel;
+
+        JScrollPane parametersScrollPane = new JScrollPane(parametersPanel) {
+            @Override
+            public Dimension getPreferredSize() {
+                Dimension contentSize = parametersPanel.getPreferredSize();
+                Insets insets = getInsets();
+                int scrollbarHeight = getHorizontalScrollBar().getPreferredSize().height;
+                int width = contentSize.width + insets.left + insets.right;
+                int height = contentSize.height + insets.top + insets.bottom + scrollbarHeight + 6;
+                return new Dimension(width, height);
+            }
+        };
+        parametersScrollPane.setBorder(BorderFactory.createEmptyBorder());
+        parametersScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        parametersScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
+        parametersScrollPane.getHorizontalScrollBar().setUnitIncrement(16);
+        return parametersScrollPane;
     }
     
     /**
@@ -291,7 +305,6 @@ public class BlastPanel extends JPanel {
         
         gbc.gridx = 1; gbc.weightx = 1.0;
         evalueField = new JTextField("1e-5", 10);
-        evalueField.setPreferredSize(new Dimension(100, 25));
         parametersPanel.add(evalueField, gbc);
         
         // Max targets
@@ -363,7 +376,7 @@ public class BlastPanel extends JPanel {
         JPanel rightPanel = new JPanel(new BorderLayout());
         
         // Parameters panel at top
-        JPanel parametersPanel = createCompactParametersPanel();
+        JComponent parametersPanel = createCompactParametersPanel();
         rightPanel.add(parametersPanel, BorderLayout.NORTH);
         
         // Results panel in center
@@ -377,7 +390,19 @@ public class BlastPanel extends JPanel {
      * Create status panel
      */
     private JPanel createStatusPanel() {
-        JPanel statusPanel = new JPanel(new BorderLayout());
+        JPanel statusPanel = new JPanel(new BorderLayout()) {
+            @Override
+            public Dimension getPreferredSize() {
+                Dimension size = super.getPreferredSize();
+                return new Dimension(size.width, 140);
+            }
+
+            @Override
+            public Dimension getMinimumSize() {
+                Dimension size = super.getMinimumSize();
+                return new Dimension(size.width, 140);
+            }
+        };
         statusPanel.setBorder(new TitledBorder("Status Information"));
         
         // Progress bar

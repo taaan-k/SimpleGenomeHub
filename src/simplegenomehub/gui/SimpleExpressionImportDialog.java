@@ -60,7 +60,7 @@ public class SimpleExpressionImportDialog extends JDialog {
      * Constructor
      */
     public SimpleExpressionImportDialog(Window parent, SpeciesInfo species) {
-        super(parent, "Import Expression Data", ModalityType.APPLICATION_MODAL);
+        super(parent, "Import Expression Data", ModalityType.MODELESS);
         this.targetSpecies = species;
         
         initializeComponents();

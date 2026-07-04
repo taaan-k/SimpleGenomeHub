@@ -14,6 +14,7 @@ import simplegenomehub.util.fileio.MultipleSyntenyResultLoader.ResultScene;
 import simplegenomehub.util.fileio.MultipleSyntenyPreviewImageRenderer;
 import simplegenomehub.util.fileio.MultipleSyntenyService;
 
+import javax.imageio.ImageIO;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -57,12 +58,16 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Displays a rendered Multiple Synteny result bundle and reuses JIGBasePanel exports.
  */
 public class MultipleSyntenyResultViewerDialog extends JDialog {
 
+    private static final Logger logger = Logger.getLogger(MultipleSyntenyResultViewerDialog.class.getName());
+    private static final String PREVIEW_FILE_NAME = "preview.png";
     private static final double DEFAULT_ZOOM_FACTOR = 1.0d;
     private static final double[] ZOOM_LEVELS = {
         0.25d, 0.5d, 0.75d, 1.0d, 1.5d, 2.0d, 3.0d, 4.0d, 5.0d, 6.0d, 8.0d, 10.0d
@@ -86,6 +91,35 @@ public class MultipleSyntenyResultViewerDialog extends JDialog {
         setupLayout();
     }
 
+    public static BufferedImage renderPreviewImage(File resultDir) throws IOException {
+        return renderPreviewImage(MultipleSyntenyResultLoader.load(resultDir));
+    }
+
+    public static File exportPreviewImage(File resultDir) throws IOException {
+        return exportPreviewImage(resultDir, renderPreviewImage(resultDir));
+    }
+
+    static BufferedImage renderPreviewImage(ResultScene scene) {
+        return MultipleSyntenyPreviewImageRenderer.render(new MultipleSyntenyResultGraphPanel(scene));
+    }
+
+    static File exportPreviewImage(File resultDir, BufferedImage previewImage) throws IOException {
+        if (resultDir == null || !resultDir.isDirectory()) {
+            throw new IllegalArgumentException("Multiple Synteny result directory is invalid.");
+        }
+        if (previewImage == null) {
+            throw new IllegalArgumentException("Multiple Synteny preview image is required.");
+        }
+
+        File previewFile = getPreviewFile(resultDir);
+        ImageIO.write(previewImage, "png", previewFile);
+        return previewFile;
+    }
+
+    static File getPreviewFile(File resultDir) {
+        return new File(resultDir, PREVIEW_FILE_NAME);
+    }
+
     private void initializeDialog() {
         setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
         setResizable(true);
@@ -101,7 +135,15 @@ public class MultipleSyntenyResultViewerDialog extends JDialog {
         add(createHeaderPanel(), BorderLayout.NORTH);
 
         graphPanel = new MultipleSyntenyResultGraphPanel(scene);
-        previewImage = MultipleSyntenyPreviewImageRenderer.render(graphPanel);
+        previewImage = renderPreviewImage(scene);
+        try {
+            exportPreviewImage(resultDir, previewImage);
+        } catch (IOException previewEx) {
+            logger.log(Level.WARNING,
+                "Failed to export Multiple Synteny preview image for " + resultDir.getAbsolutePath(),
+                previewEx
+            );
+        }
         zoomView = new ZoomableGraphView(previewImage, DEFAULT_ZOOM_FACTOR);
         graphScrollPane = new JScrollPane(zoomView);
         graphScrollPane.setWheelScrollingEnabled(false);

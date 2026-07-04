@@ -122,7 +122,6 @@ public class GeneInfoViewerDialog extends JDialog {
         geneIdField = new PlaceholderTextField(20);
         geneIdField.setToolTipText("Enter gene ID or select an example");
         geneIdField.setPlaceholder("Select species to see examples");
-        geneIdField.setPreferredSize(SimpleGenomeHubStyle.SIZE_FIELD_260_X_30);
 
         exampleButton = new JButton("Examples ▼");
         exampleButton.setToolTipText("Click to see example gene IDs for selected species");
@@ -133,10 +132,11 @@ public class GeneInfoViewerDialog extends JDialog {
         searchButton.setToolTipText("Search for gene information");
         searchButton.setPreferredSize(SimpleGenomeHubStyle.SIZE_BUTTON_120_X_38);
         searchButton.setFont(SimpleGenomeHubStyle.FONT_SANS_BOLD_12);
-        searchButton.setBackground(SimpleGenomeHubStyle.BUTTON_ACTION_ORANGE);
+        searchButton.setBackground(SimpleGenomeHubStyle.DIALOG_PRIMARY_BUTTON);
+        searchButton.setForeground(SimpleGenomeHubStyle.DIALOG_PRIMARY_BUTTON_TEXT);
+        searchButton.setBorder(BorderFactory.createLineBorder(SimpleGenomeHubStyle.DIALOG_PRIMARY_BUTTON_BORDER, 1));
+        searchButton.setFocusPainted(false);
         searchButton.setOpaque(true);
-        searchButton.setBorderPainted(false);
-        searchButton.setForeground(Color.WHITE);
 
         clearButton = new JButton("Clear");
         clearButton.setToolTipText("Clear all fields and results");
@@ -287,6 +287,11 @@ public class GeneInfoViewerDialog extends JDialog {
         
         // Window closing
         addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowOpened(WindowEvent e) {
+                SwingUtilities.invokeLater(() -> applyPrimarySearchButtonStyle());
+            }
+
             @Override
             public void windowClosing(WindowEvent e) {
                 closeDialog();
@@ -897,6 +902,20 @@ public class GeneInfoViewerDialog extends JDialog {
         searchButton.setEnabled(enabled);
         clearButton.setEnabled(enabled);
         exampleButton.setEnabled(enabled && currentSpecies != null);
+    }
+
+    private void applyPrimarySearchButtonStyle() {
+        if (searchButton == null) {
+            return;
+        }
+
+        searchButton.setBackground(SimpleGenomeHubStyle.DIALOG_PRIMARY_BUTTON);
+        searchButton.setForeground(SimpleGenomeHubStyle.DIALOG_PRIMARY_BUTTON_TEXT);
+        searchButton.setBorder(BorderFactory.createLineBorder(SimpleGenomeHubStyle.DIALOG_PRIMARY_BUTTON_BORDER, 1));
+        searchButton.setFocusPainted(false);
+        searchButton.setOpaque(true);
+        searchButton.setContentAreaFilled(true);
+        searchButton.repaint();
     }
 
     /**
