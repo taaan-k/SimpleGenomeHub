@@ -25,6 +25,15 @@
     <property name="linux.toolchain.java.home" location="toolchain/linux-x64"/>
     <property name="tools.source.dir" location="bin/tools"/>
     <property name="packages.dir" location="packages"/>
+    <property name="installers.dir" location="installers"/>
+    <property name="installer.work.dir" location="${build.dir}/installers"/>
+    <property name="app.version" value="1.0"/>
+    <property name="app.vendor" value="SimpleGenomeHub Team"/>
+    <property name="app.description" value="Genome and annotation management desktop application"/>
+    <property name="windows.installer.name" value="SimpleGenomeHub-windows-x64-setup"/>
+    <property name="windows.installer.script" location="${installer.work.dir}/SimpleGenomeHub-windows-x64.iss"/>
+    <property name="macos.app.dir" location="${installer.work.dir}/SimpleGenomeHub.app"/>
+    <property name="macos.pkg.name" value="SimpleGenomeHub-macos-x64.pkg"/>
     <property name="windows.package.name" value="SimpleGenomeHub-windows-x64"/>
     <property name="windows.package.dir" location="${packages.dir}/${windows.package.name}"/>
     <property name="macos.package.name" value="SimpleGenomeHub-macos-x64"/>
@@ -122,7 +131,7 @@
         <fail unless="compiler.available"
               message="Java compiler not found. Provide toolchain/&lt;platform&gt;/ or set JAVA_HOME to a JDK 11+ installation."/>
     </target>
-    
+
     <!-- Clean build artifacts -->
     <target name="clean">
         <delete dir="${build.dir}"/>
@@ -650,6 +659,7 @@ finally {
         <copy todir="${macos.package.dir}/bin/tools/macos-x64" failonerror="false">
             <fileset dir="${tools.source.dir}/macos-x64" erroronmissingdir="false"/>
         </copy>
+        <chmod dir="${macos.package.dir}/bin/tools/macos-x64" includes="**/*" perm="755"/>
 
         <echo file="${macos.package.dir}/run.sh"><![CDATA[#!/bin/bash
 set -euo pipefail
@@ -743,6 +753,116 @@ exec "$SCRIPT_DIR/run.sh"
     </target>
 
     <target name="package-macos" depends="package-macos-archive"/>
+
+    <target name="prepare-installers-root">
+        <mkdir dir="${installers.dir}"/>
+    </target>
+
+    <target name="installer-windows" depends="prepare-installers-root,package-windows-runtime,package-windows-runtime-skipped">
+        <delete failonerror="false">
+            <fileset dir="${installers.dir}" includes="${windows.installer.name}.exe"/>
+        </delete>
+        <mkdir dir="${installer.work.dir}"/>
+        <echo file="${windows.installer.script}"><![CDATA[#define AppName "SimpleGenomeHub"
+#define AppVersion "]]>${app.version}<![CDATA["
+#define AppPublisher "]]>${app.vendor}<![CDATA["
+
+[Setup]
+AppId={{8E2F1C47-B9D8-4704-9B74-63E5F55C6045}
+AppName={#AppName}
+AppVersion={#AppVersion}
+AppPublisher={#AppPublisher}
+DefaultDirName={autopf}\SimpleGenomeHub
+DefaultGroupName=SimpleGenomeHub
+DisableProgramGroupPage=yes
+OutputDir=]]>${installers.dir}<![CDATA[
+OutputBaseFilename=]]>${windows.installer.name}<![CDATA[
+Compression=lzma2
+SolidCompression=yes
+WizardStyle=modern
+ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64compatible
+
+[Tasks]
+Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional icons:"; Flags: unchecked
+
+[Files]
+Source: "]]>${windows.package.dir}<![CDATA[\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+[Icons]
+Name: "{autoprograms}\SimpleGenomeHub"; Filename: "{app}\run.bat"; WorkingDir: "{app}"; Comment: "Launch SimpleGenomeHub"
+Name: "{autoprograms}\Uninstall SimpleGenomeHub"; Filename: "{uninstallexe}"; Comment: "Uninstall SimpleGenomeHub"
+Name: "{autodesktop}\SimpleGenomeHub"; Filename: "{app}\run.bat"; WorkingDir: "{app}"; Tasks: desktopicon; Comment: "Launch SimpleGenomeHub"
+
+[Run]
+Filename: "{app}\run.bat"; Description: "Launch SimpleGenomeHub"; Flags: nowait postinstall skipifsilent
+]]></echo>
+        <exec executable="iscc" failonerror="true">
+            <arg path="${windows.installer.script}"/>
+        </exec>
+    </target>
+
+    <target name="installer-macos" depends="prepare-installers-root,package-macos-runtime,package-macos-runtime-skipped">
+        <delete file="${installers.dir}/${macos.pkg.name}" failonerror="false"/>
+        <delete dir="${macos.app.dir}" failonerror="false"/>
+        <mkdir dir="${macos.app.dir}/Contents/MacOS"/>
+        <mkdir dir="${macos.app.dir}/Contents/Resources/SimpleGenomeHub"/>
+        <copy todir="${macos.app.dir}/Contents/Resources/SimpleGenomeHub">
+            <fileset dir="${macos.package.dir}"/>
+        </copy>
+        <echo file="${macos.app.dir}/Contents/Info.plist"><![CDATA[<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleDisplayName</key>
+    <string>SimpleGenomeHub</string>
+    <key>CFBundleExecutable</key>
+    <string>SimpleGenomeHub</string>
+    <key>CFBundleIdentifier</key>
+    <string>org.simplegenomehub.SimpleGenomeHub</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>SimpleGenomeHub</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>]]>${app.version}<![CDATA[</string>
+    <key>CFBundleVersion</key>
+    <string>]]>${app.version}<![CDATA[</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>10.13</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+</dict>
+</plist>
+]]></echo>
+        <echo file="${macos.app.dir}/Contents/MacOS/SimpleGenomeHub"><![CDATA[#!/bin/bash
+set -euo pipefail
+APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+APP_HOME="$APP_DIR/Resources/SimpleGenomeHub"
+exec "$APP_HOME/run.sh"
+]]></echo>
+        <chmod file="${macos.app.dir}/Contents/MacOS/SimpleGenomeHub" perm="755"/>
+        <chmod file="${macos.app.dir}/Contents/Resources/SimpleGenomeHub/run.sh" perm="755"/>
+        <chmod file="${macos.app.dir}/Contents/Resources/SimpleGenomeHub/run.command" perm="755"/>
+        <chmod dir="${macos.app.dir}/Contents/Resources/SimpleGenomeHub/bin/tools/macos-x64" includes="**/*" perm="755"/>
+        <exec executable="pkgbuild" failonerror="true">
+            <arg value="--component"/>
+            <arg path="${macos.app.dir}"/>
+            <arg value="--install-location"/>
+            <arg value="/Applications"/>
+            <arg value="--identifier"/>
+            <arg value="org.simplegenomehub.SimpleGenomeHub"/>
+            <arg value="--version"/>
+            <arg value="${app.version}"/>
+            <arg path="${installers.dir}/${macos.pkg.name}"/>
+        </exec>
+    </target>
+
+    <target name="installers" depends="installer-windows,installer-macos"/>
 
     <target name="release-bundles" depends="package-windows,package-macos"/>
     
