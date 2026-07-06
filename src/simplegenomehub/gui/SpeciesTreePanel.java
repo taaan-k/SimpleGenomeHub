@@ -914,9 +914,10 @@ public class SpeciesTreePanel extends JPanel {
     }
 
     private void addSpeciesChildren(DefaultMutableTreeNode speciesNode, SpeciesInfo species) {
-        addExpressionNodes(speciesNode, species);
-        addGeneSetNodes(speciesNode, species);
         addFunctionalAnnotationNodes(speciesNode, species);
+        addGeneSetNodes(speciesNode, species);
+        addExpressionNodes(speciesNode, species);
+        addGenomeAnalysisNodes(speciesNode, species);
     }
 
     private void addExpressionNodes(DefaultMutableTreeNode speciesNode, SpeciesInfo species) {
@@ -974,6 +975,8 @@ public class SpeciesTreePanel extends JPanel {
 
         Arrays.sort(subDirs, Comparator.comparing(File::getName, String.CASE_INSENSITIVE_ORDER));
 
+        DefaultMutableTreeNode functionalNode = new DefaultMutableTreeNode(
+            new TreeSectionNodeData("FunctionalAnnotation", functionalDir));
         for (File subDir : subDirs) {
             if (!containsAnyFile(subDir)) {
                 continue;
@@ -981,8 +984,11 @@ public class SpeciesTreePanel extends JPanel {
 
             DefaultMutableTreeNode subDirNode = createFunctionalSubtree(subDir);
             if (subDirNode != null) {
-                speciesNode.add(subDirNode);
+                functionalNode.add(subDirNode);
             }
+        }
+        if (functionalNode.getChildCount() > 0) {
+            speciesNode.add(functionalNode);
         }
     }
 
@@ -991,19 +997,58 @@ public class SpeciesTreePanel extends JPanel {
             return null;
         }
 
-        String dirName = subDir.getName();
-        String lowerName = dirName.toLowerCase(Locale.ROOT);
-
-        if ("advancecircos".equals(lowerName)
-            || "genomecompare".equals(lowerName)
-            || "multiplecompare".equals(lowerName)) {
-            return createDateFolderCollectionNode(subDir);
-        }
+        String lowerName = subDir.getName().toLowerCase(Locale.ROOT);
         if ("go".equals(lowerName)) {
             return createFilteredFileCollectionNode(subDir, ".obo");
         }
         if ("kegg".equals(lowerName)) {
             return createFilteredFileCollectionNode(subDir, ".tbtoolskeggbackend");
+        }
+
+        return new DefaultMutableTreeNode(TreeFileNodeData.forFunctionalFolder(subDir));
+    }
+
+    private void addGenomeAnalysisNodes(DefaultMutableTreeNode speciesNode, SpeciesInfo species) {
+        File genomeAnalysisDir = species != null ? species.getGenomeAnalysisDir() : null;
+        if (genomeAnalysisDir == null || !genomeAnalysisDir.isDirectory()) {
+            return;
+        }
+
+        File[] subDirs = genomeAnalysisDir.listFiles(File::isDirectory);
+        if (subDirs == null || subDirs.length == 0) {
+            return;
+        }
+
+        Arrays.sort(subDirs, Comparator.comparing(File::getName, String.CASE_INSENSITIVE_ORDER));
+        DefaultMutableTreeNode genomeAnalysisNode = new DefaultMutableTreeNode(
+            new TreeSectionNodeData("GenomeAnalysis", genomeAnalysisDir));
+
+        for (File subDir : subDirs) {
+            if (!containsAnyFile(subDir)) {
+                continue;
+            }
+
+            DefaultMutableTreeNode subDirNode = createGenomeAnalysisSubtree(subDir);
+            if (subDirNode != null) {
+                genomeAnalysisNode.add(subDirNode);
+            }
+        }
+
+        if (genomeAnalysisNode.getChildCount() > 0) {
+            speciesNode.add(genomeAnalysisNode);
+        }
+    }
+
+    private DefaultMutableTreeNode createGenomeAnalysisSubtree(File subDir) {
+        if (subDir == null || !subDir.isDirectory()) {
+            return null;
+        }
+
+        String lowerName = subDir.getName().toLowerCase(Locale.ROOT);
+        if ("advancecircos".equals(lowerName)
+            || "genomecompare".equals(lowerName)
+            || "multiplecompare".equals(lowerName)) {
+            return createDateFolderCollectionNode(subDir);
         }
 
         return new DefaultMutableTreeNode(TreeFileNodeData.forFunctionalFolder(subDir));

@@ -70,11 +70,11 @@ public final class AdvancedCircosTemplateGenerator {
         if (species == null) {
             throw new IllegalArgumentException("Species cannot be null.");
         }
-        if (species.getFunctionalAnnotationDir() == null) {
-            throw new IOException("FunctionalAnnotation directory is not available.");
+        if (species.getGenomeAnalysisDir() == null) {
+            throw new IOException("GenomeAnalysis directory is not available.");
         }
 
-        File advanceCircosRoot = new File(species.getFunctionalAnnotationDir(), "AdvanceCircos");
+        File advanceCircosRoot = new File(species.getGenomeAnalysisDir(), "AdvanceCircos");
         ensureDirectory(advanceCircosRoot);
 
         File outputDir = new File(advanceCircosRoot, OUTPUT_DIR_FORMAT.format(LocalDateTime.now()));

@@ -31,8 +31,8 @@ public final class GenomeCompareProjectGenerator {
         if (primaryGenome == null) {
             throw new IllegalArgumentException("Primary genome cannot be null.");
         }
-        if (primaryGenome.getFunctionalAnnotationDir() == null) {
-            throw new IOException("FunctionalAnnotation directory is not available.");
+        if (primaryGenome.getGenomeAnalysisDir() == null) {
+            throw new IOException("GenomeAnalysis directory is not available.");
         }
 
         String normalizedRootFolderName = rootFolderName == null ? "" : rootFolderName.trim();
@@ -40,7 +40,7 @@ public final class GenomeCompareProjectGenerator {
             throw new IllegalArgumentException("Output root folder name cannot be empty.");
         }
 
-        File outputRoot = new File(primaryGenome.getFunctionalAnnotationDir(), normalizedRootFolderName);
+        File outputRoot = new File(primaryGenome.getGenomeAnalysisDir(), normalizedRootFolderName);
         ensureDirectory(outputRoot);
 
         String normalizedPrefix = namePrefix == null ? "" : namePrefix.trim();

@@ -31,10 +31,11 @@ public class SpeciesInfo {
     private File annotationDir;
     private File statsFile;
     
-    // Expression and functional annotation data
+    // Expression, functional annotation and genome analysis data
     private File expressionDir;
     private File functionalAnnotationDir;
     private File geneSetDir;
+    private File genomeAnalysisDir;
     private List<ExpressionExperiment> expressionExperiments;
     private GeneAnnotationData functionalAnnotations;
     
@@ -84,10 +85,11 @@ public class SpeciesInfo {
         this.annotationDir = new File(speciesDir, "Annotation");
         this.statsFile = new File(speciesDir, "stat.txt");
         
-        // Expression and functional annotation directories
+        // Expression, functional annotation and genome analysis directories
         this.expressionDir = new File(speciesDir, "Expression");
         this.functionalAnnotationDir = new File(speciesDir, "FunctionalAnnotation");
         this.geneSetDir = new File(speciesDir, "GeneSet");
+        this.genomeAnalysisDir = new File(speciesDir, "GenomeAnalysis");
         
         // Initialize type-specific annotation directories
         initializeAnnotationTypeDirectories();
@@ -134,6 +136,9 @@ public class SpeciesInfo {
             }
             if (!geneSetDir.exists()) {
                 geneSetDir.mkdirs();
+            }
+            if (!genomeAnalysisDir.exists()) {
+                genomeAnalysisDir.mkdirs();
             }
             
             // Create type-specific annotation directories
@@ -791,6 +796,10 @@ public class SpeciesInfo {
 
     public File getGeneSetDir() {
         return geneSetDir;
+    }
+
+    public File getGenomeAnalysisDir() {
+        return genomeAnalysisDir;
     }
 
     public boolean hasGeneSets() {

@@ -902,10 +902,10 @@ public class SpeciesInfoPanel extends JPanel {
             return;
         }
 
-        File functionalAnnotationDir = currentSpecies.getFunctionalAnnotationDir();
-        if (functionalAnnotationDir == null) {
+        File genomeAnalysisDir = currentSpecies.getGenomeAnalysisDir();
+        if (genomeAnalysisDir == null) {
             JOptionPane.showMessageDialog(this,
-                "FunctionalAnnotation directory is not available for the selected species.",
+                "GenomeAnalysis directory is not available for the selected species.",
                 "Directory Missing",
                 JOptionPane.WARNING_MESSAGE);
             return;

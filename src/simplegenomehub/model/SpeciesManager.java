@@ -4,6 +4,7 @@
 package simplegenomehub.model;
 
 import simplegenomehub.config.SimpleGenomeHubConfig;
+import simplegenomehub.util.fileio.SpeciesDataVersionManager;
 import simplegenomehub.util.performance.LazySpeciesLoader;
 import simplegenomehub.util.performance.PerformanceMonitor;
 import java.io.File;
@@ -79,6 +80,8 @@ public class SpeciesManager {
             PerformanceMonitor.endOperation("loadSpeciesData");
             return;
         }
+
+        SpeciesDataVersionManager.migrateLegacyDataIfNeeded(dataDir);
         
         File[] speciesDirs = dataDir.listFiles(File::isDirectory);
         if (speciesDirs == null) {

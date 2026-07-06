@@ -3,6 +3,8 @@
  */
 package simplegenomehub.model;
 
+import simplegenomehub.config.SimpleGenomeHubVersion;
+
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -109,32 +111,31 @@ public class GenomeData {
      * Save genome data to stat.txt file
      */
     public boolean saveToFile(File statsFile) {
-        Properties props = new Properties();
-        
-        props.setProperty("genome.size", String.valueOf(genomeSize));
-        props.setProperty("gene.count", String.valueOf(geneCount));
-        props.setProperty("transcript.count", String.valueOf(transcriptCount));
-        props.setProperty("cds.count", String.valueOf(cdsCount));
-        props.setProperty("protein.count", String.valueOf(proteinCount));
-        props.setProperty("chromosome.count", String.valueOf(chromosomeCount));
-        props.setProperty("scaffold.count", String.valueOf(scaffoldCount));
-        
-        if (genomeFileName != null) {
-            props.setProperty("genome.file", genomeFileName);
-        }
-        if (annotationFileName != null) {
-            props.setProperty("annotation.file", annotationFileName);
-        }
-        
-        props.setProperty("has.index", String.valueOf(hasIndex));
-        props.setProperty("assembly.level", assemblyLevel);
-        props.setProperty("annotation.source", annotationSource);
-        props.setProperty("gc.content", String.valueOf(gcContent));
-        props.setProperty("n50", String.valueOf(n50));
-        
         try (BufferedWriter writer = new BufferedWriter(
                 new OutputStreamWriter(new FileOutputStream(statsFile), StandardCharsets.UTF_8))) {
-            props.store(writer, "SimpleGenomeHub Species Statistics");
+            writer.write(SimpleGenomeHubVersion.STATS_FILE_HEADER);
+            writer.write(System.lineSeparator());
+
+            writePropertyLine(writer, "genome.size", String.valueOf(genomeSize));
+            writePropertyLine(writer, "gene.count", String.valueOf(geneCount));
+            writePropertyLine(writer, "transcript.count", String.valueOf(transcriptCount));
+            writePropertyLine(writer, "cds.count", String.valueOf(cdsCount));
+            writePropertyLine(writer, "protein.count", String.valueOf(proteinCount));
+            writePropertyLine(writer, "chromosome.count", String.valueOf(chromosomeCount));
+            writePropertyLine(writer, "scaffold.count", String.valueOf(scaffoldCount));
+
+            if (genomeFileName != null) {
+                writePropertyLine(writer, "genome.file", escapePropertyValue(genomeFileName));
+            }
+            if (annotationFileName != null) {
+                writePropertyLine(writer, "annotation.file", escapePropertyValue(annotationFileName));
+            }
+
+            writePropertyLine(writer, "has.index", String.valueOf(hasIndex));
+            writePropertyLine(writer, "assembly.level", escapePropertyValue(assemblyLevel));
+            writePropertyLine(writer, "annotation.source", escapePropertyValue(annotationSource));
+            writePropertyLine(writer, "gc.content", String.valueOf(gcContent));
+            writePropertyLine(writer, "n50", String.valueOf(n50));
 
             if (!chromosomeStats.isEmpty()) {
                 writer.write(System.lineSeparator());

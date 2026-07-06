@@ -14,6 +14,7 @@ import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.MouseWheelEvent;
 import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
 import java.io.File;
@@ -64,7 +65,7 @@ final class SpeciesOverviewPanel extends JPanel {
     private final JLabel otherDataTimeLabel;
     private final JLabel otherDataGenome1Label;
     private final JLabel otherDataGenome2Label;
-    private final JLabel otherDataPreviewLabel;
+    private final OtherDataPreviewCanvas otherDataPreviewCanvas;
     private final JScrollPane otherDataPreviewScrollPane;
     private final JSplitPane otherDataPreviewSplitPane;
     private final JTextArea otherDataLinkListArea;
@@ -95,8 +96,8 @@ final class SpeciesOverviewPanel extends JPanel {
         otherDataTimeLabel = new JLabel("Time: -");
         otherDataGenome1Label = new JLabel("");
         otherDataGenome2Label = new JLabel("");
-        otherDataPreviewLabel = new JLabel("", SwingConstants.CENTER);
-        otherDataPreviewScrollPane = new JScrollPane(otherDataPreviewLabel);
+        otherDataPreviewCanvas = new OtherDataPreviewCanvas();
+        otherDataPreviewScrollPane = new JScrollPane(otherDataPreviewCanvas);
         otherDataPreviewSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
         otherDataLinkListArea = new JTextArea(3, 20);
         otherDataLinkListScrollPane = new JScrollPane(otherDataLinkListArea);
@@ -149,25 +150,22 @@ final class SpeciesOverviewPanel extends JPanel {
         otherDataGenome1Label.setVisible(false);
         otherDataGenome2Label.setVisible(false);
 
-        otherDataPreviewLabel.setOpaque(true);
-        otherDataPreviewLabel.setBackground(Color.WHITE);
-        otherDataPreviewLabel.setForeground(STAT_TEXT_COLOR);
-        otherDataPreviewLabel.setVerticalAlignment(SwingConstants.TOP);
-        otherDataPreviewLabel.setHorizontalAlignment(SwingConstants.CENTER);
-
         otherDataPreviewScrollPane.setBorder(BorderFactory.createEmptyBorder());
         otherDataPreviewScrollPane.setOpaque(false);
         otherDataPreviewScrollPane.getViewport().setBackground(Color.WHITE);
-        otherDataPreviewScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        otherDataPreviewScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         otherDataPreviewScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
         otherDataPreviewScrollPane.setMinimumSize(new Dimension(0, 0));
+        otherDataPreviewScrollPane.setWheelScrollingEnabled(false);
         ModernScrollBarStyle.applyTo(otherDataPreviewScrollPane);
         otherDataPreviewScrollPane.getViewport().addComponentListener(new ComponentAdapter() {
             @Override
             public void componentResized(ComponentEvent e) {
-                refreshOtherDataPreviewImage();
+                otherDataPreviewCanvas.refreshView();
             }
         });
+        otherDataPreviewCanvas.addMouseWheelListener(this::handleOtherDataPreviewWheelZoom);
+        otherDataPreviewScrollPane.getViewport().addMouseWheelListener(this::handleOtherDataPreviewWheelZoom);
 
         otherDataPreviewSplitPane.setBorder(BorderFactory.createEmptyBorder());
         otherDataPreviewSplitPane.setOpaque(false);
@@ -760,9 +758,7 @@ final class SpeciesOverviewPanel extends JPanel {
         otherDataTimeLabel.setText("Time: -");
         updateOtherDataGenomeLabels(null, null);
         updateOtherDataLinkList(null);
-        otherDataPreviewLabel.setIcon(null);
-        otherDataPreviewLabel.setText("");
-        otherDataPreviewLabel.setPreferredSize(null);
+        otherDataPreviewCanvas.clearPreview();
         otherDataCardLayout.show(otherDataCardPanel, OTHER_DATA_PROMPT_CARD);
     }
 
@@ -777,7 +773,7 @@ final class SpeciesOverviewPanel extends JPanel {
         updateOtherDataGenomeLabels(null, null);
         updateOtherDataLinkList(null);
         otherDataCardLayout.show(otherDataCardPanel, OTHER_DATA_PREVIEW_CARD);
-        refreshOtherDataPreviewImage();
+        loadOtherDataPreviewImage();
     }
 
     private void showGenomeCompareOtherData(File resultDir) {
@@ -795,7 +791,7 @@ final class SpeciesOverviewPanel extends JPanel {
         );
         updateOtherDataLinkList(null);
         otherDataCardLayout.show(otherDataCardPanel, OTHER_DATA_PREVIEW_CARD);
-        refreshOtherDataPreviewImage();
+        loadOtherDataPreviewImage();
     }
 
     private void showMultipleSyntenyOtherData(File resultDir) {
@@ -810,7 +806,7 @@ final class SpeciesOverviewPanel extends JPanel {
         updateOtherDataGenomeLabels(null, null);
         updateOtherDataLinkList(info != null ? info.linkLines : null);
         otherDataCardLayout.show(otherDataCardPanel, OTHER_DATA_PREVIEW_CARD);
-        refreshOtherDataPreviewImage();
+        loadOtherDataPreviewImage();
     }
 
     private void updateOtherDataGenomeLabels(String genome1, String genome2) {
@@ -848,57 +844,39 @@ final class SpeciesOverviewPanel extends JPanel {
         });
     }
 
-    private void refreshOtherDataPreviewImage() {
+    private void loadOtherDataPreviewImage() {
         if (currentOtherDataPreviewFile == null) {
+            otherDataPreviewCanvas.clearPreview();
             return;
         }
         if (!currentOtherDataPreviewFile.isFile()) {
-            otherDataPreviewLabel.setIcon(null);
-            otherDataPreviewLabel.setText("Preview image not available.");
-            otherDataPreviewLabel.setPreferredSize(null);
+            otherDataPreviewCanvas.setMessage("Preview image not available.");
             return;
         }
 
         try {
             BufferedImage image = ImageIO.read(currentOtherDataPreviewFile);
             if (image == null) {
-                otherDataPreviewLabel.setIcon(null);
-                otherDataPreviewLabel.setText("Preview image not available.");
-                otherDataPreviewLabel.setPreferredSize(null);
+                otherDataPreviewCanvas.setMessage("Preview image not available.");
                 return;
             }
-
-            Dimension viewportSize = otherDataPreviewScrollPane.getViewport().getExtentSize();
-            int availableWidth = viewportSize.width > 24 ? viewportSize.width - 12 : 400;
-            int availableHeight = viewportSize.height > 24 ? viewportSize.height - 12 : 140;
-            int imageWidth = Math.max(1, image.getWidth());
-            int imageHeight = Math.max(1, image.getHeight());
-
-            double scale = Math.min(1.0d, (double) availableWidth / imageWidth);
-            int targetWidth = Math.max(1, (int) Math.round(imageWidth * scale));
-            int targetHeight = Math.max(1, (int) Math.round(imageHeight * scale));
-
-            if (targetHeight > availableHeight) {
-                int scrollbarWidth = Math.max(0, otherDataPreviewScrollPane
-                    .getVerticalScrollBar()
-                    .getPreferredSize()
-                    .width);
-                int adjustedWidth = Math.max(1, availableWidth - scrollbarWidth);
-                scale = Math.min(1.0d, (double) adjustedWidth / imageWidth);
-                targetWidth = Math.max(1, (int) Math.round(imageWidth * scale));
-                targetHeight = Math.max(1, (int) Math.round(imageHeight * scale));
-            }
-
-            Image scaledImage = image.getScaledInstance(targetWidth, targetHeight, Image.SCALE_SMOOTH);
-            otherDataPreviewLabel.setText(null);
-            otherDataPreviewLabel.setIcon(new ImageIcon(scaledImage));
-            otherDataPreviewLabel.setPreferredSize(new Dimension(targetWidth, targetHeight));
-            otherDataPreviewScrollPane.getViewport().setViewPosition(new Point(0, 0));
+            otherDataPreviewCanvas.setImage(image);
         } catch (IOException ex) {
-            otherDataPreviewLabel.setIcon(null);
-            otherDataPreviewLabel.setText("Failed to load preview image.");
-            otherDataPreviewLabel.setPreferredSize(null);
+            otherDataPreviewCanvas.setMessage("Failed to load preview image.");
         }
+    }
+
+    private void handleOtherDataPreviewWheelZoom(MouseWheelEvent event) {
+        if (event == null || !otherDataPreviewCanvas.hasImage()) {
+            return;
+        }
+        Point anchorPoint = SwingUtilities.convertPoint(
+            event.getComponent(),
+            event.getPoint(),
+            otherDataPreviewCanvas
+        );
+        otherDataPreviewCanvas.adjustZoom(event.getWheelRotation(), anchorPoint);
+        event.consume();
     }
 
     private String formatOtherDataTime(File resultDir) {
@@ -1358,6 +1336,195 @@ final class SpeciesOverviewPanel extends JPanel {
             }
             String trimmedDisplayLabel = displayLabel == null ? "" : displayLabel.trim();
             return trimmedDisplayLabel.isEmpty() ? null : trimmedDisplayLabel;
+        }
+    }
+
+    private final class OtherDataPreviewCanvas extends JComponent {
+
+        private static final int DEFAULT_WIDTH = 400;
+        private static final int DEFAULT_HEIGHT = 140;
+        private static final int CONTENT_PADDING = 12;
+        private static final double MIN_ZOOM_MULTIPLIER = 0.25d;
+        private static final double MAX_ZOOM_MULTIPLIER = 8.0d;
+        private static final double ZOOM_STEP_FACTOR = 1.1d;
+
+        private BufferedImage image;
+        private String message = "";
+        private double zoomMultiplier = 1.0d;
+
+        private OtherDataPreviewCanvas() {
+            setOpaque(true);
+            setBackground(Color.WHITE);
+            setForeground(STAT_TEXT_COLOR);
+        }
+
+        private void clearPreview() {
+            image = null;
+            message = "";
+            zoomMultiplier = 1.0d;
+            revalidate();
+            repaint();
+        }
+
+        private void setMessage(String message) {
+            image = null;
+            this.message = message == null ? "" : message;
+            zoomMultiplier = 1.0d;
+            revalidate();
+            repaint();
+        }
+
+        private void setImage(BufferedImage image) {
+            this.image = image;
+            this.message = "";
+            this.zoomMultiplier = 1.0d;
+            revalidate();
+            repaint();
+            SwingUtilities.invokeLater(() ->
+                otherDataPreviewScrollPane.getViewport().setViewPosition(new Point(0, 0))
+            );
+        }
+
+        private boolean hasImage() {
+            return image != null;
+        }
+
+        private void refreshView() {
+            revalidate();
+            repaint();
+        }
+
+        private void adjustZoom(int wheelRotation, Point anchorInCanvas) {
+            if (image == null || wheelRotation == 0) {
+                return;
+            }
+
+            JViewport viewport = otherDataPreviewScrollPane.getViewport();
+            Rectangle viewRect = viewport.getViewRect();
+            Point anchorInViewport = SwingUtilities.convertPoint(this, anchorInCanvas, viewport);
+            Dimension oldSize = getPreferredSize();
+            double anchorRatioX = oldSize.width <= 0
+                ? 0.0d
+                : (viewRect.x + anchorInViewport.x) / (double) oldSize.width;
+            double anchorRatioY = oldSize.height <= 0
+                ? 0.0d
+                : (viewRect.y + anchorInViewport.y) / (double) oldSize.height;
+
+            double nextZoomMultiplier = zoomMultiplier * Math.pow(ZOOM_STEP_FACTOR, -wheelRotation);
+            nextZoomMultiplier = Math.max(MIN_ZOOM_MULTIPLIER, Math.min(MAX_ZOOM_MULTIPLIER, nextZoomMultiplier));
+            if (Math.abs(nextZoomMultiplier - zoomMultiplier) < 1.0e-6d) {
+                return;
+            }
+
+            zoomMultiplier = nextZoomMultiplier;
+            revalidate();
+            repaint();
+
+            SwingUtilities.invokeLater(() -> {
+                Dimension newSize = getPreferredSize();
+                int targetX = Math.max(0, Math.min(
+                    Math.max(0, newSize.width - viewRect.width),
+                    (int) Math.round(anchorRatioX * newSize.width - anchorInViewport.x)
+                ));
+                int targetY = Math.max(0, Math.min(
+                    Math.max(0, newSize.height - viewRect.height),
+                    (int) Math.round(anchorRatioY * newSize.height - anchorInViewport.y)
+                ));
+                viewport.setViewPosition(new Point(targetX, targetY));
+            });
+        }
+
+        @Override
+        public Dimension getPreferredSize() {
+            int preferredWidth = resolveStableAvailableWidth();
+            if (image == null) {
+                int preferredHeight = resolveViewportHeight();
+                return new Dimension(preferredWidth, preferredHeight);
+            }
+
+            double renderScale = resolveRenderScale();
+            int renderWidth = Math.max(1, (int) Math.round(image.getWidth() * renderScale));
+            int renderHeight = Math.max(1, (int) Math.round(image.getHeight() * renderScale));
+            return new Dimension(Math.max(preferredWidth, renderWidth), renderHeight);
+        }
+
+        @Override
+        protected void paintComponent(Graphics graphics) {
+            super.paintComponent(graphics);
+            Graphics2D g2 = (Graphics2D) graphics.create();
+            try {
+                g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+                g2.setColor(getBackground());
+                g2.fillRect(0, 0, getWidth(), getHeight());
+
+                if (image == null) {
+                    if (message != null && !message.isEmpty()) {
+                        g2.setFont(SimpleGenomeHubStyle.FONT_SANS_PLAIN_14);
+                        g2.setColor(getForeground());
+                        FontMetrics metrics = g2.getFontMetrics();
+                        int textX = Math.max(0, (getWidth() - metrics.stringWidth(message)) / 2);
+                        int textY = Math.max(metrics.getAscent(), (getHeight() + metrics.getAscent()) / 2);
+                        g2.drawString(message, textX, textY);
+                    }
+                    return;
+                }
+
+                double renderScale = resolveRenderScale();
+                int renderWidth = Math.max(1, (int) Math.round(image.getWidth() * renderScale));
+                int renderHeight = Math.max(1, (int) Math.round(image.getHeight() * renderScale));
+                int imageX = Math.max(0, (getWidth() - renderWidth) / 2);
+                g2.drawImage(image, imageX, 0, renderWidth, renderHeight, null);
+            } finally {
+                g2.dispose();
+            }
+        }
+
+        private double resolveRenderScale() {
+            if (image == null) {
+                return 1.0d;
+            }
+            double fitScale = Math.min(1.0d, (double) resolveStableAvailableWidth() / Math.max(1, image.getWidth()));
+            return Math.max(0.05d, fitScale * zoomMultiplier);
+        }
+
+        private int resolveStableAvailableWidth() {
+            int scrollPaneWidth = otherDataPreviewScrollPane.getWidth();
+            if (scrollPaneWidth > 0) {
+                Insets insets = otherDataPreviewScrollPane.getInsets();
+                scrollPaneWidth -= insets.left + insets.right;
+            } else {
+                scrollPaneWidth = otherDataPreviewScrollPane.getViewport().getExtentSize().width;
+            }
+
+            int baseWidth = scrollPaneWidth > 0 ? scrollPaneWidth : DEFAULT_WIDTH;
+            int availableWidth = Math.max(1, baseWidth - CONTENT_PADDING);
+            if (image == null) {
+                return availableWidth;
+            }
+
+            int viewportHeight = resolveViewportHeight();
+            double scaleWithoutScrollbar = Math.min(1.0d, (double) availableWidth / Math.max(1, image.getWidth()));
+            int heightWithoutScrollbar = Math.max(
+                1,
+                (int) Math.round(image.getHeight() * scaleWithoutScrollbar * zoomMultiplier)
+            );
+            if (heightWithoutScrollbar > viewportHeight) {
+                int scrollbarWidth = Math.max(
+                    0,
+                    otherDataPreviewScrollPane.getVerticalScrollBar().getPreferredSize().width
+                );
+                availableWidth = Math.max(1, availableWidth - scrollbarWidth);
+            }
+            return availableWidth;
+        }
+
+        private int resolveViewportHeight() {
+            Dimension viewportSize = otherDataPreviewScrollPane.getViewport().getExtentSize();
+            if (viewportSize.height > CONTENT_PADDING) {
+                return viewportSize.height - CONTENT_PADDING;
+            }
+            return viewportSize.height > 0 ? viewportSize.height : DEFAULT_HEIGHT;
         }
     }
 
