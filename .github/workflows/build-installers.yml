@@ -1,0 +1,71 @@
+name: Build Installers
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    name: Windows x64 installer
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '11'
+          architecture: x64
+
+      - name: Install Ant and Inno Setup
+        shell: pwsh
+        run: |
+          choco install ant innosetup --no-progress -y
+          $iscc = Get-ChildItem "C:\Program Files (x86)" -Recurse -Filter ISCC.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $iscc) {
+            throw "Inno Setup ISCC.exe was not found after installation."
+          }
+          Split-Path -Parent $iscc.FullName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Build Windows installer
+        shell: pwsh
+        run: ant "-Dwindows.toolchain.java.home=$env:JAVA_HOME" clean installer-windows
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: SimpleGenomeHub-windows-x64
+          path: installers/*.exe
+          if-no-files-found: error
+
+  macos:
+    name: macOS x64 installer
+    runs-on: macos-13
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '11'
+          architecture: x64
+
+      - name: Install Ant
+        run: brew install ant
+
+      - name: Build macOS installer
+        run: ant "-Dmac.toolchain.java.home=$JAVA_HOME" clean installer-macos
+
+      - name: Upload macOS installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: SimpleGenomeHub-macos-x64
+          path: installers/*.pkg
+          if-no-files-found: error

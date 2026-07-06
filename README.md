@@ -64,6 +64,17 @@ Build release packages:
 ant clean release-bundles
 ```
 
+Build single-file installers:
+
+```powershell
+ant clean installer-windows
+ant clean installer-macos
+```
+
+Windows installer builds require Inno Setup (`iscc`) on `PATH`.
+macOS installer builds use `pkgbuild`, which is included with macOS.
+Both installer targets keep Java source/target compatibility at JDK 11.
+
 Build single-platform packages:
 
 ```powershell
@@ -71,4 +82,5 @@ ant clean package-windows
 ant clean package-macos
 ```
 
-Release files are written to `packages/`.
+Release packages are written to `packages/`.
+Installers are written to `installers/`.
