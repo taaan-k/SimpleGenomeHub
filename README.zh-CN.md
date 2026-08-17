@@ -132,9 +132,15 @@ BLAST 界面支持在基因组、基因、转录本和蛋白数据库中进行�
 
 富集结果可以在确认可视化参数后调用 TBtools-II 进行绘图。
 
+经过对8个物种基因功能注释的测试，内置Java版与原版eggNOG-mapper的运行结果是一致的。我们的测试结果可以通过MEGA网盘下载获取：
+https://mega.nz/file/5jYAkCBB#ttMKZo2f0JMOz3tKKq4f2Kl2uRXMmTE-TaZ0BTG7oRM
+
 ### 双基因组共线性
 
 双基因组共线性分析通过 `MCscanX (Pure Java)` 完成。用户选择两个基因组，确认染色体顺序，可选输入需要高亮的基因，然后运行分析。结果会保存到当前数据单元下，并可在主界面中通过 TBtools-II Dual Synteny Plot 重新打开。
+
+使用菠萝与拟南芥的BLASTP结果进行测试，MCScanX (Pure Java) 的运行结果与原版一致。测试结果y也可通过MEGA网盘下载获取：
+https://mega.nz/file/5jYAkCBB#ttMKZo2f0JMOz3tKKq4f2Kl2uRXMmTE-TaZ0BTG7oRM
 
 ### 多基因组共线性布局
 
