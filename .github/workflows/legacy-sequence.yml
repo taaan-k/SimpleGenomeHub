@@ -1,0 +1,48 @@
+name: Legacy CDS regression
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - 'src/simplegenomehub/util/fileio/SequenceExtractor.java'
+      - 'src/simplegenomehub/util/fileio/RepresentativeTranscriptSelector.java'
+      - 'test/legacy-sequence.xml'
+      - 'test/simplegenomehub/regression/LegacyCdsStrandRegression.java'
+      - 'test/fixtures/legacy-cds/**'
+      - '.github/workflows/legacy-sequence.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    name: Java 11 legacy CDS (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            src/simplegenomehub/util/fileio
+            test
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '11'
+      - name: Install Ant on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: choco install ant --no-progress -y
+      - name: Install Ant on Linux
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ant
+      - name: Verify legacy extraction against explicit expected sequences
+        run: ant -f test/legacy-sequence.xml regression

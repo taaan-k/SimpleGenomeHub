@@ -380,8 +380,8 @@ public class SequenceExtractor {
                     String transcriptId = entry.getKey();
                     List<FeatureInfo> cdsList = entry.getValue();
                     
-                    // Sort CDS by start position
-                    cdsList.sort((a, b) -> Integer.compare(a.getStart(), b.getStart()));
+                    // Assemble already strand-oriented segments in transcript order.
+                    sortCdsInTranscriptOrder(cdsList);
                     
                     // Concatenate CDS sequences
                     StringBuilder cdsSequence = new StringBuilder();
@@ -428,7 +428,7 @@ public class SequenceExtractor {
                     List<FeatureInfo> cdsList = entry.getValue();
                     
                     // Sort and concatenate CDS
-                    cdsList.sort((a, b) -> Integer.compare(a.getStart(), b.getStart()));
+                    sortCdsInTranscriptOrder(cdsList);
                     StringBuilder cdsSequence = new StringBuilder();
                     for (FeatureInfo cds : cdsList) {
                         String sequence = extractSequence(genomeSeqs, cds);
@@ -625,6 +625,15 @@ public class SequenceExtractor {
      */
     public static String extractFeatureSequence(Map<String, String> genomeSeqs, FeatureInfo feature) {
         return extractSequence(genomeSeqs, feature);
+    }
+
+    private static void sortCdsInTranscriptOrder(List<FeatureInfo> cds) {
+        cds.sort(Comparator.comparingInt(FeatureInfo::getStart));
+        // extractSequence already reverse-complements each negative-strand
+        // segment, so concatenate those segments from high to low coordinates.
+        if (!cds.isEmpty() && "-".equals(cds.get(0).getStrand())) {
+            Collections.reverse(cds);
+        }
     }
     
     /**
@@ -850,7 +859,7 @@ public class SequenceExtractor {
                     List<FeatureInfo> cdsList = entry.getValue();
                     
                     // Sort and concatenate CDS
-                    cdsList.sort((a, b) -> Integer.compare(a.getStart(), b.getStart()));
+                    sortCdsInTranscriptOrder(cdsList);
                     StringBuilder cdsSequence = new StringBuilder();
                     for (FeatureInfo cds : cdsList) {
                         String sequence = extractSequence(genomeSeqs, cds);
@@ -921,7 +930,7 @@ public class SequenceExtractor {
                     List<FeatureInfo> cdsList = entry.getValue();
                     
                     // Sort and concatenate CDS
-                    cdsList.sort((a, b) -> Integer.compare(a.getStart(), b.getStart()));
+                    sortCdsInTranscriptOrder(cdsList);
                     StringBuilder cdsSequence = new StringBuilder();
                     for (FeatureInfo cds : cdsList) {
                         String sequence = extractSequence(genomeSeqs, cds);
