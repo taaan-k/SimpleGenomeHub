@@ -102,6 +102,13 @@
         <pathelement location="${build.classes.dir}"/>
         <pathelement location="${build.test.classes.dir}"/>
     </path>
+
+    <!-- Prefer this checkout's classes over any Hub classes in the host JAR. -->
+    <path id="regression.classpath">
+        <pathelement location="${build.test.classes.dir}"/>
+        <pathelement location="${build.classes.dir}"/>
+        <path refid="compile.classpath"/>
+    </path>
     
     <!-- Initialize build directories -->
     <target name="init">
@@ -189,6 +196,29 @@
         </junit>
     </target>
     
+    <!-- Self-contained correctness tests; no external JUnit installation is required. -->
+    <target name="compile-regression" depends="compile,check-toolchain-javac">
+        <javac srcdir="${test.src.dir}"
+               includes="simplegenomehub/regression/**/*.java"
+               destdir="${build.test.classes.dir}"
+               classpathref="regression.classpath"
+               includeantruntime="false"
+               encoding="UTF-8"
+               source="11" target="11" fork="true"
+               executable="${javac.source.dir}/bin/${javac.command}"/>
+    </target>
+
+    <target name="test-regression" depends="compile-regression"
+            description="Verify annotation import, table display and persistence using isolated fixtures">
+        <mkdir dir="${build.dir}/regression/home-annotation"/>
+        <java classname="simplegenomehub.regression.AnnotationPersistenceRegression"
+              classpathref="regression.classpath" fork="true" failonerror="true">
+            <sysproperty key="java.awt.headless" value="true"/>
+            <sysproperty key="user.home" value="${build.dir}/regression/home-annotation"/>
+            <arg value="${build.dir}/regression/annotation"/>
+        </java>
+    </target>
+
     <!-- Create JAR file -->
     <target name="jar" depends="compile">
         <jar jarfile="${dist.dir}/SimpleGenomeHub.jar" basedir="${build.classes.dir}">
