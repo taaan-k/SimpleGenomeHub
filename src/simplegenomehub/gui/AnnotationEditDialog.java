@@ -211,13 +211,16 @@ public class AnnotationEditDialog extends JDialog {
             AnnotationType type = (AnnotationType) typeCombo.getSelectedItem();
             String term = termField.getText().trim();
             
-            updatedAnnotation = new GeneAnnotation(geneId, annotationId, term, type);
+            updatedAnnotation = originalAnnotation == null
+                ? new GeneAnnotation(geneId, annotationId, term, type)
+                : originalAnnotation.copyForEdit(geneId, annotationId, type);
+            updatedAnnotation.setTerm(term);
             updatedAnnotation.setDescription(descriptionArea.getText().trim());
             updatedAnnotation.setEvidence(evidenceField.getText().trim());
             updatedAnnotation.setScore((Double) scoreSpinner.getValue());
             
             // Copy attributes from original
-            if (originalAnnotation.getAttributes() != null) {
+            if (originalAnnotation != null && originalAnnotation.getAttributes() != null) {
                 for (java.util.Map.Entry<String, String> entry : originalAnnotation.getAttributes().entrySet()) {
                     updatedAnnotation.setAttribute(entry.getKey(), entry.getValue());
                 }

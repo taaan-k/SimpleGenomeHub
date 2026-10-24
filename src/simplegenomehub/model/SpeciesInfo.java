@@ -4,6 +4,10 @@
 package simplegenomehub.model;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import simplegenomehub.util.fileio.AtomicFiles;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -591,52 +595,78 @@ public class SpeciesInfo {
      * Save functional annotations to directory
      */
     public boolean saveFunctionalAnnotations() {
-        if (functionalAnnotations == null || functionalAnnotationDir == null) {
-            return false;
-        }
-        
         try {
-            // Ensure all type-specific directories exist
-            createDirectoryStructure();
-            
-            // Save all annotation types to their respective directories
-            Map<GeneAnnotationData.AnnotationType, Integer> counts = functionalAnnotations.getAnnotationCounts();
-            boolean savedAny = false;
-            
-            for (GeneAnnotationData.AnnotationType type : GeneAnnotationData.AnnotationType.values()) {
-                int count = counts.getOrDefault(type, 0);
-                if (count > 0) {
-                    File typeDir = annotationTypeDirs.get(type);
-                    if (typeDir != null) {
-                        File dataFile = new File(typeDir, type.getShortName() + ".tsv");
-                        if (functionalAnnotations.saveToFile(dataFile, type)) {
-                            savedAny = true;
-                            logger.info("Saved " + count + " " + type.getShortName() + " annotations to: " + dataFile.getName());
-                            
-                            // Save metadata if available
-                            AnnotationMetadata metadata = annotationMetadata.get(type);
-                            if (metadata != null) {
-                                File metadataFile = new File(typeDir, type.getShortName() + ".metadata.json");
-                                metadata.saveToFile(metadataFile);
-                            }
-                        }
-                    }
-                }
-            }
-            
-            if (savedAny) {
-                logger.info("Saved functional annotations for species: " + getSpeciesDirectoryName());
-                return true;
-            }
-            
-        } catch (Exception e) {
+            saveFunctionalAnnotationsChecked();
+            return true;
+        } catch (IOException e) {
             logger.warning("Failed to save functional annotations: " + e.getMessage());
             return false;
         }
-        
-        return false;
     }
-    
+
+    /** Report any failed type or metadata save instead of accepting a partial success. */
+    public void saveFunctionalAnnotationsChecked() throws IOException {
+        if (functionalAnnotations == null || functionalAnnotationDir == null)
+            throw new IOException("Functional annotation data and destination are required");
+        if (!createDirectoryStructure()) throw new IOException("Cannot create annotation directories");
+        for (GeneAnnotationData.AnnotationType type : GeneAnnotationData.AnnotationType.values()) {
+            int count = functionalAnnotations.getAnnotationCounts().getOrDefault(type, 0);
+            // A lazy dataset starts with every count zero. Only an explicit clear
+            // may replace an existing file with an empty table.
+            if (count > 0 || functionalAnnotations.isAnnotationTypeExplicitlyCleared(type))
+                saveAnnotationTypeChecked(functionalAnnotations, type);
+        }
+    }
+
+    /** Persist the cleared type before changing the live model. */
+    public int clearFunctionalAnnotations(GeneAnnotationData.AnnotationType type) throws IOException {
+        if (functionalAnnotations == null || type == null || functionalAnnotationDir == null)
+            throw new IOException("Functional annotation data, type and destination are required");
+        GeneAnnotationData empty = new GeneAnnotationData("cleared_annotations", "Cleared annotations");
+        empty.setColumnHeaders(type, functionalAnnotations.getColumnHeaders(type));
+        saveAnnotationTypeChecked(empty, type);
+        return functionalAnnotations.removeAllAnnotationsOfType(type);
+    }
+
+    private void saveAnnotationTypeChecked(GeneAnnotationData data,
+                                          GeneAnnotationData.AnnotationType type) throws IOException {
+        File typeDir = annotationTypeDirs.get(type);
+        if (typeDir == null) throw new IOException("No destination directory for " + type.getShortName());
+        File dataFile = new File(typeDir, type.getShortName() + ".tsv");
+        data.saveToFileChecked(dataFile, type);
+        AnnotationMetadata metadata = AnnotationMetadata.analyzeFileChecked(dataFile, type);
+        // The parsed model is authoritative for the schema and counts. In
+        // particular, ordinary comments and gene IDs are never column headers.
+        metadata.setColumnHeaders(data.getColumnHeaders(type));
+        metadata.setColumnCount(data.getColumnHeaders(type).length);
+        metadata.setDataLines(data.getAnnotationCounts().getOrDefault(type, 0));
+        metadata.setTotalAnnotations(data.getAnnotationCounts().getOrDefault(type, 0));
+        metadata.setUniqueGenes(data.getAnnotatedGenes(type).size());
+        Map<String, Integer> geneCounts = new HashMap<>();
+        for (String geneId : data.getAnnotatedGenes(type))
+            geneCounts.put(geneId, data.getGeneAnnotations(geneId, type).size());
+        metadata.setGeneAnnotationCounts(geneCounts);
+        AnnotationMetadata previous = annotationMetadata.get(type);
+        if (previous != null && previous.getCustomProperties() != null)
+            metadata.setCustomProperties(previous.getCustomProperties());
+        File metadataFile = new File(typeDir, type.getShortName() + ".metadata.json");
+        saveAnnotationMetadataChecked(metadata, metadataFile);
+        annotationMetadata.put(type, metadata);
+    }
+
+    private void saveAnnotationMetadataChecked(AnnotationMetadata metadata, File file) throws IOException {
+        AtomicFiles.withLock(file.toPath(), () -> {
+            Path destination = file.toPath().toAbsolutePath();
+            Path temporary = Files.createTempFile(destination.getParent(), ".sgh-annotation-metadata-", ".tmp");
+            try {
+                if (!metadata.saveToFile(temporary.toFile()))
+                    throw new IOException("Failed to save annotation metadata: " + file);
+                AtomicFiles.replace(temporary, destination);
+            } finally { Files.deleteIfExists(temporary); }
+            return null;
+        });
+    }
+
     /**
      * Get genes that have both expression and annotation data
      */

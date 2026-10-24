@@ -881,10 +881,12 @@ public class AnnotationImportDialog extends JDialog {
         // Perform import in background
         final File goOboFileForImport = resolvedGoOboFile;
         final File keggBackendFileForImport = resolvedKeggBackendFile;
+        final AnnotationType selectedTypeForImport = getSelectedAnnotationType();
+        final String selectedDelimiterForImport = (String) delimiterCombo.getSelectedItem();
         SwingWorker<Boolean, String> importWorker = new SwingWorker<Boolean, String>() {
             @Override
             protected Boolean doInBackground() throws Exception {
-                final AnnotationType selectedType = getSelectedAnnotationType();
+                final AnnotationType selectedType = selectedTypeForImport;
                 
                 publish("Setting up annotation data...");
                 
@@ -893,12 +895,6 @@ public class AnnotationImportDialog extends JDialog {
                 // but the current implementation loads them directly during annotation import
                 
                 publish("Loading annotations from file...");
-                
-                // For Custom annotations, clear existing data of that type to avoid mixing with old data
-                if (selectedType == AnnotationType.CUSTOM) {
-                    publish("Clearing existing Custom annotations...");
-                    annotationData.clearAnnotationsOfType(AnnotationType.CUSTOM);
-                }
                 
                 // Import annotations based on type with delimiter detection
                 boolean success = false;
@@ -912,7 +908,7 @@ public class AnnotationImportDialog extends JDialog {
                     case INTERPRO:
                     case PFAM:
                     case CUSTOM:
-                        success = loadCustomAnnotationsWithDelimiter(annotationData, annotationFile, selectedType);
+                        success = loadCustomAnnotationsWithDelimiter(annotationData, annotationFile, selectedType, selectedDelimiterForImport);
                         break;
                 }
                 
@@ -967,7 +963,7 @@ public class AnnotationImportDialog extends JDialog {
                     targetSpecies.setFunctionalAnnotations(annotationData);
                     
                     // Save functional annotations to species
-                    targetSpecies.saveFunctionalAnnotations();
+                    targetSpecies.saveFunctionalAnnotationsChecked();
                     
                     // Debug: Print final annotation counts
                     System.out.println("DEBUG: Import successful. Annotation counts: " + annotationData.getAnnotationCounts());
@@ -991,7 +987,7 @@ public class AnnotationImportDialog extends JDialog {
                     importSuccessful = get();
                     
                     if (importSuccessful) {
-                        AnnotationType selectedType = getSelectedAnnotationType();
+                        AnnotationType selectedType = selectedTypeForImport;
                         int annotationCount = annotationData.getAnnotationCounts().get(selectedType);
                         
                         JOptionPane.showMessageDialog(AnnotationImportDialog.this,
@@ -1025,101 +1021,51 @@ public class AnnotationImportDialog extends JDialog {
      * Analyze file format and validate structure
      */
     private FileFormatInfo analyzeFileFormat(File file) throws Exception {
-        FileFormatInfo info = new FileFormatInfo();
-        
-        try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(file))) {
-            StringBuilder preview = new StringBuilder();
-            String line;
-            int lineCount = 0;
-            int dataRows = 0;
-            String detectedDelimiter = null;
-            int columnCount = 0;
-            
-            while ((line = reader.readLine()) != null && lineCount < 20) {
-                lineCount++;
-                preview.append(line).append("\n");
-                
-                // Skip empty lines and comments
-                if (line.trim().isEmpty() || line.startsWith("#")) {
-                    continue;
-                }
-                
-                // Auto-detect delimiter on first data line
-                if (detectedDelimiter == null) {
-                    String selectedDelimiter = (String) delimiterCombo.getSelectedItem();
-                    if ("Auto Detect".equals(selectedDelimiter)) {
-                        // Count potential delimiters
-                        int tabCount = line.split("\t", -1).length - 1;
-                        int commaCount = line.split(",", -1).length - 1;
-                        int semicolonCount = line.split(";", -1).length - 1;
-                        
-                        if (tabCount >= commaCount && tabCount >= semicolonCount && tabCount > 0) {
-                            detectedDelimiter = "\t";
-                        } else if (commaCount >= semicolonCount && commaCount > 0) {
-                            detectedDelimiter = ",";
-                        } else if (semicolonCount > 0) {
-                            detectedDelimiter = ";";
-                        } else {
-                            detectedDelimiter = "\t"; // Default
-                        }
-                    } else {
-                        // Use manual selection
-                        switch (selectedDelimiter) {
-                            case "Tab": detectedDelimiter = "\t"; break;
-                            case "Comma": detectedDelimiter = ","; break;
-                            case "Semicolon": detectedDelimiter = ";"; break;
-                            default: detectedDelimiter = "\t";
-                        }
-                    }
-                }
-                
-                // Count columns
-                String[] parts = line.split(detectedDelimiter, -1);
-                if (columnCount == 0) {
-                    columnCount = parts.length;
-                } else if (parts.length != columnCount) {
-                    // Allow some variation in column count
-                    if (Math.abs(parts.length - columnCount) > 1) {
-                        info.isValid = false;
-                        info.errorMessage = "Inconsistent column count (expected " + columnCount + ", found " + parts.length + ")"; 
-                        info.preview = preview.toString();
-                        return info;
-                    }
-                }
-                
-                dataRows++;
-            }
-            
-            // Validate minimum requirements
-            if (columnCount < 2) {
-                info.isValid = false;
-                info.errorMessage = "Minimum 2 columns required (Gene_ID, Annotation_ID)";
-                info.preview = preview.toString();
-                return info;
-            }
-            
-            if (dataRows == 0) {
-                info.isValid = false;
-                info.errorMessage = "No data rows found";
-                info.preview = preview.toString();
-                return info;
-            }
-            
-            // Set successful validation info
-            info.isValid = true;
-            info.delimiter = detectedDelimiter;
-            info.columnCount = columnCount;
-            info.dataRows = dataRows;
-            info.preview = preview.toString();
-            
-            if (lineCount == 20) {
-                info.preview += "... (file continues)";
-            }
-            
-            return info;
-        }
+        return analyzeFileFormat(file, (String) delimiterCombo.getSelectedItem());
     }
-    
+
+    private FileFormatInfo analyzeFileFormat(File file, String selectedDelimiter) throws Exception {
+        FileFormatInfo info = new FileFormatInfo();
+        String delimiter = "Tab".equals(selectedDelimiter) ? "\t"
+            : "Comma".equals(selectedDelimiter) ? ","
+            : "Semicolon".equals(selectedDelimiter) ? ";" : null;
+        StringBuilder preview = new StringBuilder();
+        for (String line : GeneAnnotationData.readAnnotationPreview(file, 20)) {
+            preview.append(line).append("\n");
+            if (line.trim().isEmpty()) continue;
+            boolean comment = line.trim().startsWith("#");
+            String candidate = comment ? line.stripLeading().substring(1) : line;
+            if (comment) {
+                String declaredDelimiter = null;
+                for (String possible : new String[]{"\t", ",", ";"}) {
+                    if (GeneAnnotationData.isAnnotationHeader(candidate.split(java.util.regex.Pattern.quote(possible), -1))) {
+                        declaredDelimiter = possible;
+                        break;
+                    }
+                }
+                if (declaredDelimiter == null) continue;
+                if (delimiter == null) delimiter = declaredDelimiter;
+            }
+            if (delimiter == null) {
+                int tabs = line.split("\t", -1).length - 1;
+                int commas = line.split(",", -1).length - 1;
+                int semicolons = line.split(";", -1).length - 1;
+                delimiter = tabs >= commas && tabs >= semicolons && tabs > 0 ? "\t"
+                    : commas >= semicolons && commas > 0 ? "," : semicolons > 0 ? ";" : "\t";
+            }
+            String[] fields = candidate.split(java.util.regex.Pattern.quote(delimiter), -1);
+            info.columnCount = Math.max(info.columnCount, fields.length);
+            if (!GeneAnnotationData.isAnnotationHeader(fields)) info.dataRows++;
+        }
+        info.preview = preview.toString();
+        info.delimiter = delimiter == null ? "\t" : delimiter;
+        info.isValid = info.columnCount >= 2 && info.dataRows > 0;
+        if (!info.isValid) info.errorMessage = info.dataRows == 0 ? "No data rows found"
+            : "Minimum 2 columns required (Gene_ID, Annotation_ID)";
+        // This is a preview. The transactional importer validates every source row.
+        return info;
+    }
+
     /**
      * Load GO annotations with custom delimiter detection
      */
@@ -1129,15 +1075,16 @@ public class AnnotationImportDialog extends JDialog {
             throw new Exception("Invalid file format: " + formatInfo.errorMessage);
         }
         
-        try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(file))) {
+        try (java.io.BufferedReader reader = GeneAnnotationData.openAnnotationReader(file)) {
             String line;
-            int imported = 0;
+            java.util.List<GeneAnnotationData.GeneAnnotation> parsed = new java.util.ArrayList<>();
             
             while ((line = reader.readLine()) != null) {
-                if (line.startsWith("#") || line.trim().isEmpty()) continue;
+                if (line.startsWith("\uFEFF")) line = line.substring(1);
+                if (line.trim().startsWith("#") || line.trim().isEmpty()) continue;
                 
                 String[] parts = line.split(java.util.regex.Pattern.quote(formatInfo.delimiter), -1);
-                if (parts.length < 2) continue;
+                if (parts.length < 2 || GeneAnnotationData.isAnnotationHeader(parts)) continue;
                 
                 String geneId = parts[0].trim();
                 String goId = parts[1].trim();
@@ -1153,10 +1100,11 @@ public class AnnotationImportDialog extends JDialog {
                 annotation.setEvidence(evidence);
                 annotation.setAttribute("category", category);
                 
-                data.addAnnotation(annotation);
-                imported++;
+                parsed.add(annotation);
             }
             
+            for (GeneAnnotationData.GeneAnnotation annotation : parsed) data.addAnnotation(annotation);
+            int imported = parsed.size();
             logger.info("Imported " + imported + " GO annotations using delimiter: " + 
                        (formatInfo.delimiter.equals("\t") ? "TAB" : formatInfo.delimiter));
             return imported > 0;
@@ -1172,15 +1120,16 @@ public class AnnotationImportDialog extends JDialog {
             throw new Exception("Invalid file format: " + formatInfo.errorMessage);
         }
         
-        try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(file))) {
+        try (java.io.BufferedReader reader = GeneAnnotationData.openAnnotationReader(file)) {
             String line;
-            int imported = 0;
+            java.util.List<GeneAnnotationData.GeneAnnotation> parsed = new java.util.ArrayList<>();
             
             while ((line = reader.readLine()) != null) {
-                if (line.startsWith("#") || line.trim().isEmpty()) continue;
+                if (line.startsWith("\uFEFF")) line = line.substring(1);
+                if (line.trim().startsWith("#") || line.trim().isEmpty()) continue;
                 
                 String[] parts = line.split(java.util.regex.Pattern.quote(formatInfo.delimiter), -1);
-                if (parts.length < 2) continue;
+                if (parts.length < 2 || GeneAnnotationData.isAnnotationHeader(parts)) continue;
                 
                 String geneId = parts[0].trim();
                 String keggId = parts[1].trim();
@@ -1192,10 +1141,11 @@ public class AnnotationImportDialog extends JDialog {
                     new GeneAnnotationData.GeneAnnotation(geneId, keggId, pathway, GeneAnnotationData.AnnotationType.KEGG);
                 annotation.setDescription(pathway);
                 
-                data.addAnnotation(annotation);
-                imported++;
+                parsed.add(annotation);
             }
             
+            for (GeneAnnotationData.GeneAnnotation annotation : parsed) data.addAnnotation(annotation);
+            int imported = parsed.size();
             logger.info("Imported " + imported + " KEGG annotations using delimiter: " + 
                        (formatInfo.delimiter.equals("\t") ? "TAB" : formatInfo.delimiter));
             return imported > 0;
@@ -1205,47 +1155,14 @@ public class AnnotationImportDialog extends JDialog {
     /**
      * Load custom annotations with delimiter detection
      */
-    private boolean loadCustomAnnotationsWithDelimiter(GeneAnnotationData data, File file, 
-                                                        GeneAnnotationData.AnnotationType type) throws Exception {
-        FileFormatInfo formatInfo = analyzeFileFormat(file);
-        if (!formatInfo.isValid) {
-            throw new Exception("Invalid file format: " + formatInfo.errorMessage);
-        }
-        
-        try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(file))) {
-            String line;
-            int imported = 0;
-            
-            while ((line = reader.readLine()) != null) {
-                if (line.startsWith("#") || line.trim().isEmpty()) continue;
-                
-                String[] parts = line.split(java.util.regex.Pattern.quote(formatInfo.delimiter), -1);
-                if (parts.length < 2) continue;
-                
-                String geneId = parts[0].trim();
-                String annotationId = parts[1].trim();
-                String description = parts.length > 2 ? parts[2].trim() : "";
-                String evidence = parts.length > 3 ? parts[3].trim() : "";
-                
-                if (geneId.isEmpty() || annotationId.isEmpty()) continue;
-                
-                GeneAnnotationData.GeneAnnotation annotation = 
-                    new GeneAnnotationData.GeneAnnotation(geneId, annotationId, description, type);
-                annotation.setDescription(description);
-                if (!evidence.isEmpty()) {
-                    annotation.setEvidence(evidence);
-                }
-                
-                data.addAnnotation(annotation);
-                imported++;
-            }
-            
-            logger.info("Imported " + imported + " " + type.getShortName() + " annotations using delimiter: " + 
-                       (formatInfo.delimiter.equals("\t") ? "TAB" : formatInfo.delimiter));
-            return imported > 0;
-        }
+    private boolean loadCustomAnnotationsWithDelimiter(GeneAnnotationData data, File file,
+                                                        GeneAnnotationData.AnnotationType type,
+                                                        String selectedDelimiter) throws Exception {
+        FileFormatInfo formatInfo = analyzeFileFormat(file, selectedDelimiter);
+        if (!formatInfo.isValid) throw new IOException("Invalid file format: " + formatInfo.errorMessage);
+        return data.loadCustomAnnotations(file, type, formatInfo.delimiter, type == AnnotationType.CUSTOM);
     }
-    
+
     /**
      * File format analysis result
      */

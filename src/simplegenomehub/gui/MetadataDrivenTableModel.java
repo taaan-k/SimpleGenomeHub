@@ -128,74 +128,10 @@ public class MetadataDrivenTableModel extends AbstractTableModel {
      * Detect column structure directly from file
      */
     private void detectColumnsFromFile() throws IOException {
-        List<String> detectedHeaders = new ArrayList<>();
-        int maxColumns = 0;
-        
-        try (BufferedReader reader = new BufferedReader(new FileReader(dataFile))) {
-            String line;
-            boolean headerFound = false;
-            
-            while ((line = reader.readLine()) != null && !headerFound) {
-                if (line.trim().isEmpty()) continue;
-                
-                String[] parts;
-                if (line.startsWith("#")) {
-                    // Header line
-                    String headerLine = line.substring(1).trim();
-                    parts = splitLine(headerLine);
-                    for (String part : parts) {
-                        detectedHeaders.add(part.trim());
-                    }
-                    headerFound = true;
-                } else {
-                    // Data line - count columns
-                    parts = splitLine(line);
-                    maxColumns = Math.max(maxColumns, parts.length);
-                    
-                    // Check if this looks like a header
-                    if (parts.length > 1 && parts[0].toLowerCase().contains("gene")) {
-                        for (String part : parts) {
-                            detectedHeaders.add(part.trim());
-                        }
-                        headerFound = true;
-                    } else {
-                        // Stop after checking a few lines
-                        break;
-                    }
-                }
-            }
-        }
-        
-        if (!detectedHeaders.isEmpty()) {
-            columnHeaders = detectedHeaders.toArray(new String[0]);
-        } else if (maxColumns > 0) {
-            // Generate default headers based on column count
-            columnHeaders = generateDefaultHeaders(maxColumns);
-        } else {
-            setDefaultHeaders();
-        }
-        
+        FileRows scanned = readFileRows(gene -> false, 0, Integer.MAX_VALUE);
+        columnHeaders = scanned.headers;
+        totalRows = scanned.totalRows;
         logger.info("Detected " + columnHeaders.length + " columns from file");
-    }
-    
-    /**
-     * Split line with automatic delimiter detection
-     */
-    private String[] splitLine(String line) {
-        // Try tab first
-        if (line.contains("\t")) {
-            return line.split("\t", -1);
-        }
-        // Try comma
-        if (line.contains(",")) {
-            return line.split(",", -1);
-        }
-        // Try semicolon
-        if (line.contains(";")) {
-            return line.split(";", -1);
-        }
-        // Default to tab
-        return line.split("\t", -1);
     }
     
     /**
@@ -210,7 +146,7 @@ public class MetadataDrivenTableModel extends AbstractTableModel {
                     headers[i] = "Gene_ID";
                     break;
                 case 1:
-                    headers[i] = annotationType != null ? 
+                    headers[i] = annotationType != null && annotationType != AnnotationType.CUSTOM ?
                         annotationType.getShortName() + "_ID" : "Annotation_ID";
                     break;
                 case 2:
@@ -218,6 +154,9 @@ public class MetadataDrivenTableModel extends AbstractTableModel {
                     break;
                 case 3:
                     headers[i] = "Description";
+                    break;
+                case 4:
+                    headers[i] = "Evidence";
                     break;
                 default:
                     headers[i] = "Column_" + (i + 1);
@@ -260,132 +199,108 @@ public class MetadataDrivenTableModel extends AbstractTableModel {
      * Load data from file with pagination support
      */
     public void loadData() {
-        if (isLoading || dataFile == null || !dataFile.exists()) {
-            return;
-        }
-        
+        if (isLoading || dataFile == null || !dataFile.exists()) return;
         isLoading = true;
-        tableData.clear();
-        geneFilterMap.clear();
-        
         try {
-            if (isPaginated) {
-                loadPagedData();
-            } else {
-                loadAllData();
-            }
-            
+            FileRows loaded = readFileRows(gene -> true,
+                isPaginated ? (long) currentPage * pageSize : 0,
+                isPaginated ? pageSize : Integer.MAX_VALUE);
+            applyRows(loaded);
             isLoaded = true;
             logger.info("Loaded " + tableData.size() + " rows from " + dataFile.getName());
-            
         } catch (IOException e) {
+            // A rejected reload must not replace the visible rows with a prefix.
             logger.severe("Failed to load data from " + dataFile.getName() + ": " + e.getMessage());
         } finally {
             isLoading = false;
-            fireTableDataChanged();
         }
     }
-    
-    /**
-     * Load all data (for small files)
-     */
-    private void loadAllData() throws IOException {
-        try (BufferedReader reader = new BufferedReader(new FileReader(dataFile))) {
+
+    private static final class FileRows {
+        private String[] headers;
+        private int totalRows;
+        private final List<String[]> rows = new ArrayList<>();
+    }
+
+    /** Read once with the same header and encoding rules as annotation import. */
+    private FileRows readFileRows(java.util.function.Predicate<String> include,
+                                  long startRow, int maximumRows) throws IOException {
+        FileRows result = new FileRows();
+        String[] declaredHeaders = null;
+        String delimiter = null;
+        int maximumColumns = 0;
+        try (BufferedReader reader = GeneAnnotationData.openAnnotationReader(dataFile)) {
             String line;
-            boolean skipFirstDataLine = false;
-            
+            int lineNumber = 0;
             while ((line = reader.readLine()) != null) {
+                lineNumber++;
+                if (lineNumber == 1 && line.startsWith("\uFEFF")) line = line.substring(1);
                 if (line.trim().isEmpty()) continue;
-                
-                // Skip comments
-                if (line.startsWith("#")) {
+                boolean comment = line.stripLeading().startsWith("#");
+                String candidate = comment ? line.stripLeading().substring(1) : line;
+                String candidateDelimiter = delimiter == null ? detectDelimiter(candidate) : delimiter;
+                String[] parts = candidate.split(java.util.regex.Pattern.quote(candidateDelimiter), -1);
+                if (GeneAnnotationData.isAnnotationHeader(parts)) {
+                    for (int i = 0; i < parts.length; i++) parts[i] = parts[i].trim();
+                    if (declaredHeaders != null && !Arrays.equals(declaredHeaders, parts))
+                        throw formatError(lineNumber, "Conflicting annotation header");
+                    if (declaredHeaders == null && result.totalRows > 0
+                        && !Arrays.equals(generateDefaultHeaders(maximumColumns), parts))
+                        throw formatError(lineNumber, "Annotation header changes columns after data has started");
+                    declaredHeaders = parts;
+                    delimiter = candidateDelimiter;
                     continue;
                 }
-                
-                // Skip header line if it exists and we haven't set skipFirstDataLine
-                String[] parts = splitLine(line);
-                if (!skipFirstDataLine && parts.length > 1 && 
-                    parts[0].toLowerCase().contains("gene") && 
-                    !parts[1].matches(".*\\d.*")) {
-                    skipFirstDataLine = true;
-                    continue;
-                }
-                
-                // Process data line
-                if (parts.length >= 1) {
-                    // Ensure we have enough columns to match headers
-                    String[] rowData = new String[columnHeaders.length];
-                    for (int i = 0; i < rowData.length; i++) {
-                        rowData[i] = (i < parts.length) ? parts[i].trim() : "";
-                    }
-                    
-                    tableData.add(rowData);
-                    
-                    // Track gene for filtering
-                    String geneId = rowData[0];
-                    if (!geneId.isEmpty() && !geneFilterMap.containsKey(geneId)) {
-                        geneFilterMap.put(geneId, String.join("\t", rowData));
-                    }
-                }
+                if (comment) continue;
+                if (delimiter == null) delimiter = candidateDelimiter;
+                if (parts.length < 2 || parts[0].trim().isEmpty())
+                    throw formatError(lineNumber, "Expected a gene identifier and annotation columns");
+                if (declaredHeaders != null && parts.length > declaredHeaders.length)
+                    throw formatError(lineNumber, "Data row has more columns than its header");
+                parts[0] = parts[0].trim();
+                boolean hasContent = false;
+                for (int i = 1; i < parts.length; i++)
+                    if (!parts[i].trim().isEmpty() && !"-".equals(parts[i].trim())) hasContent = true;
+                if (!hasContent) continue;
+                maximumColumns = Math.max(maximumColumns, parts.length);
+                if (result.totalRows >= startRow && result.rows.size() < maximumRows && include.test(parts[0]))
+                    result.rows.add(parts);
+                result.totalRows++;
             }
         }
-    }
-    
-    /**
-     * Load paged data (for large files)
-     */
-    private void loadPagedData() throws IOException {
-        int startRow = currentPage * pageSize;
-        int endRow = startRow + pageSize;
-        int currentRow = 0;
-        int dataRowCount = 0;
-        
-        try (BufferedReader reader = new BufferedReader(new FileReader(dataFile))) {
-            String line;
-            boolean skipFirstDataLine = false;
-            
-            while ((line = reader.readLine()) != null && dataRowCount < pageSize) {
-                if (line.trim().isEmpty()) continue;
-                
-                // Skip comments
-                if (line.startsWith("#")) {
-                    continue;
-                }
-                
-                // Skip header line if it exists
-                String[] parts = splitLine(line);
-                if (!skipFirstDataLine && parts.length > 1 && 
-                    parts[0].toLowerCase().contains("gene") && 
-                    !parts[1].matches(".*\\d.*")) {
-                    skipFirstDataLine = true;
-                    continue;
-                }
-                
-                // Check if we're in the current page range
-                if (currentRow >= startRow && currentRow < endRow) {
-                    if (parts.length >= 1) {
-                        // Ensure we have enough columns to match headers
-                        String[] rowData = new String[columnHeaders.length];
-                        for (int i = 0; i < rowData.length; i++) {
-                            rowData[i] = (i < parts.length) ? parts[i].trim() : "";
-                        }
-                        
-                        tableData.add(rowData);
-                        dataRowCount++;
-                        
-                        // Track gene for filtering
-                        String geneId = rowData[0];
-                        if (!geneId.isEmpty() && !geneFilterMap.containsKey(geneId)) {
-                            geneFilterMap.put(geneId, String.join("\t", rowData));
-                        }
-                    }
-                }
-                
-                currentRow++;
-            }
+        result.headers = declaredHeaders == null ? generateDefaultHeaders(maximumColumns) : declaredHeaders;
+        for (int row = 0; row < result.rows.size(); row++) {
+            String[] original = result.rows.get(row);
+            String[] padded = Arrays.copyOf(original, result.headers.length);
+            for (int column = original.length; column < padded.length; column++) padded[column] = "";
+            result.rows.set(row, padded);
         }
+        return result;
     }
-    
+
+    private IOException formatError(int line, String reason) {
+        return new IOException(reason + " at " + dataFile.getName() + ":" + line);
+    }
+
+    private static String detectDelimiter(String line) {
+        if (line.indexOf('\t') >= 0) return "\t";
+        if (line.indexOf(',') >= 0) return ",";
+        if (line.indexOf(';') >= 0) return ";";
+        return "\t";
+    }
+
+    private void applyRows(FileRows loaded) {
+        boolean structureChanged = !Arrays.equals(columnHeaders, loaded.headers);
+        columnHeaders = loaded.headers;
+        totalRows = loaded.totalRows;
+        tableData = loaded.rows;
+        geneFilterMap.clear();
+        for (String[] row : tableData)
+            geneFilterMap.putIfAbsent(row[0], String.join("\t", row));
+        if (structureChanged) fireTableStructureChanged();
+        else fireTableDataChanged();
+    }
+
     /**
      * Load specific page
      */
@@ -455,219 +370,36 @@ public class MetadataDrivenTableModel extends AbstractTableModel {
      */
     public void filterByGenes(Set<String> geneIds, boolean partialMatch) {
         if (geneIds == null || geneIds.isEmpty()) {
-            // Clear filter - reload original data
             loadData();
             return;
         }
-        
-        List<String[]> filteredData = new ArrayList<>();
-        
-        // Always search the complete file for accurate results
-        try {
-            if (partialMatch) {
-                searchFileForPartialGeneIds(geneIds, filteredData);
-            } else {
-                searchFileForGenes(geneIds, filteredData);
-            }
-        } catch (IOException e) {
-            logger.warning("Failed to search file for gene IDs: " + e.getMessage());
-        }
-        
-        tableData = filteredData;
-        fireTableDataChanged();
-        
-        logger.info("Filtered annotations: found " + filteredData.size() + " entries for " + 
-                   geneIds.size() + " gene IDs (partial=" + partialMatch + ")");
+        Set<String> requested = new HashSet<>(geneIds);
+        Set<String> lower = new HashSet<>();
+        for (String gene : requested) lower.add(gene.toLowerCase(Locale.ROOT));
+        filterRows(gene -> partialMatch
+            ? lower.stream().anyMatch(term -> gene.toLowerCase(Locale.ROOT).contains(term))
+            : requested.contains(gene));
     }
-    
-    /**
-     * Filter by partial gene ID match
-     * Always searches the complete file, not just loaded table data
-     */
+
+    /** Match every annotation row, including multiple annotations for one gene. */
     public void filterByPartialGeneId(String partialGeneId) {
         if (partialGeneId == null || partialGeneId.trim().isEmpty()) {
-            // Clear filter - reload original data
             loadData();
             return;
         }
-        
-        String filterText = partialGeneId.toLowerCase().trim();
-        List<String[]> filteredData = new ArrayList<>();
-        
-        // Always search the complete file for accurate results
+        String requested = partialGeneId.trim().toLowerCase(Locale.ROOT);
+        filterRows(gene -> gene.toLowerCase(Locale.ROOT).contains(requested));
+    }
+
+    private void filterRows(java.util.function.Predicate<String> predicate) {
+        if (dataFile == null || !dataFile.exists()) return;
         try {
-            searchFileForPartialGeneId(filterText, filteredData);
+            applyRows(readFileRows(predicate, 0, Integer.MAX_VALUE));
         } catch (IOException e) {
-            logger.warning("Failed to search file for partial gene ID: " + e.getMessage());
-        }
-        
-        tableData = filteredData;
-        fireTableDataChanged();
-        
-        logger.info("Filtered annotations: found " + filteredData.size() + " entries for partial gene ID '" + partialGeneId + "'");
-    }
-    
-    /**
-     * Search file for specific genes (exact match)
-     */
-    private void searchFileForGenes(Set<String> geneIds, List<String[]> resultData) throws IOException {
-        if (dataFile == null || !dataFile.exists()) {
-            return;
-        }
-        
-        Set<String> foundGenes = new HashSet<>();
-        Set<String> remainingGenes = new HashSet<>(geneIds);
-        
-        try (BufferedReader reader = new BufferedReader(new FileReader(dataFile))) {
-            String line;
-            boolean skipFirstDataLine = false;
-            
-            while ((line = reader.readLine()) != null && !remainingGenes.isEmpty()) {
-                if (line.trim().isEmpty() || line.startsWith("#")) {
-                    continue;
-                }
-                
-                String[] parts = splitLine(line);
-                
-                // Skip header line
-                if (!skipFirstDataLine && parts.length > 1 && 
-                    parts[0].toLowerCase().contains("gene") && 
-                    !parts[1].matches(".*\\d.*")) {
-                    skipFirstDataLine = true;
-                    continue;
-                }
-                
-                if (parts.length >= 1) {
-                    String geneId = parts[0].trim();
-                    if (remainingGenes.contains(geneId) && !foundGenes.contains(geneId)) {
-                        // Ensure we have enough columns to match headers
-                        String[] rowData = new String[columnHeaders.length];
-                        for (int i = 0; i < rowData.length; i++) {
-                            rowData[i] = (i < parts.length) ? parts[i].trim() : "";
-                        }
-                        
-                        resultData.add(rowData);
-                        remainingGenes.remove(geneId);
-                        foundGenes.add(geneId);
-                    }
-                }
-            }
+            logger.warning("Failed to search annotation file: " + e.getMessage());
         }
     }
-    
-    /**
-     * Search file for genes matching multiple partial IDs (used in batch partial filtering)
-     */
-    private void searchFileForPartialGeneIds(Set<String> searchTerms, List<String[]> resultData) throws IOException {
-        if (dataFile == null || !dataFile.exists()) {
-            return;
-        }
-        
-        Set<String> foundGenes = new HashSet<>();
-        
-        // Convert search terms to lowercase for case-insensitive matching
-        Set<String> lowerSearchTerms = new HashSet<>();
-        for (String term : searchTerms) {
-            lowerSearchTerms.add(term.toLowerCase());
-        }
-        
-        try (BufferedReader reader = new BufferedReader(new FileReader(dataFile))) {
-            String line;
-            boolean skipFirstDataLine = false;
-            
-            while ((line = reader.readLine()) != null) {
-                if (line.trim().isEmpty() || line.startsWith("#")) {
-                    continue;
-                }
-                
-                String[] parts = splitLine(line);
-                
-                // Skip header line
-                if (!skipFirstDataLine && parts.length > 1 && 
-                    parts[0].toLowerCase().contains("gene") && 
-                    !parts[1].matches(".*\\d.*")) {
-                    skipFirstDataLine = true;
-                    continue;
-                }
-                
-                if (parts.length >= 1) {
-                    String geneId = parts[0].trim();
-                    String lowerGeneId = geneId.toLowerCase();
-                    
-                    // Check if this gene matches any search term and hasn't been found yet
-                    if (!foundGenes.contains(geneId)) {
-                        boolean matches = false;
-                        for (String searchTerm : lowerSearchTerms) {
-                            if (lowerGeneId.contains(searchTerm)) {
-                                matches = true;
-                                break;
-                            }
-                        }
-                        
-                        if (matches) {
-                            // Ensure we have enough columns to match headers
-                            String[] rowData = new String[columnHeaders.length];
-                            for (int i = 0; i < rowData.length; i++) {
-                                rowData[i] = (i < parts.length) ? parts[i].trim() : "";
-                            }
-                            
-                            resultData.add(rowData);
-                            foundGenes.add(geneId);
-                        }
-                    }
-                }
-            }
-        }
-    }
-    
-    /**
-     * Search file for genes matching partial ID (used in single gene ID filtering)
-     */
-    private void searchFileForPartialGeneId(String filterText, List<String[]> resultData) throws IOException {
-        if (dataFile == null || !dataFile.exists()) {
-            return;
-        }
-        
-        Set<String> foundGenes = new HashSet<>();
-        
-        try (BufferedReader reader = new BufferedReader(new FileReader(dataFile))) {
-            String line;
-            boolean skipFirstDataLine = false;
-            
-            while ((line = reader.readLine()) != null) {
-                if (line.trim().isEmpty() || line.startsWith("#")) {
-                    continue;
-                }
-                
-                String[] parts = splitLine(line);
-                
-                // Skip header line
-                if (!skipFirstDataLine && parts.length > 1 && 
-                    parts[0].toLowerCase().contains("gene") && 
-                    !parts[1].matches(".*\\d.*")) {
-                    skipFirstDataLine = true;
-                    continue;
-                }
-                
-                if (parts.length >= 1) {
-                    String geneId = parts[0].trim();
-                    
-                    // Check if this gene matches the filter and hasn't been found yet
-                    if (!foundGenes.contains(geneId) && geneId.toLowerCase().contains(filterText)) {
-                        // Ensure we have enough columns to match headers
-                        String[] rowData = new String[columnHeaders.length];
-                        for (int i = 0; i < rowData.length; i++) {
-                            rowData[i] = (i < parts.length) ? parts[i].trim() : "";
-                        }
-                        
-                        resultData.add(rowData);
-                        foundGenes.add(geneId);
-                    }
-                }
-            }
-        }
-    }
-    
+
     // TableModel implementation
     
     @Override

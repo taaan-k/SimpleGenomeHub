@@ -1104,24 +1104,34 @@ public class AnnotationDataPanel extends JDialog {
      * Export table data to file (for metadata-driven model)
      */
     private void exportTableToFile(File file) throws Exception {
-        try (java.io.PrintWriter writer = new java.io.PrintWriter(new java.io.FileWriter(file))) {
-            // Write header
-            for (int col = 0; col < annotationTable.getColumnCount(); col++) {
-                if (col > 0) writer.print("\t");
-                writer.print(annotationTable.getColumnName(col));
-            }
-            writer.println();
-            
-            // Write data
-            for (int row = 0; row < annotationTable.getRowCount(); row++) {
+        simplegenomehub.util.fileio.AtomicFiles.withLock(file.toPath(), () -> {
+            simplegenomehub.util.fileio.AtomicFiles.write(file.toPath(), target -> {
+                java.io.PrintWriter writer = new java.io.PrintWriter(target);
+                // Write header
                 for (int col = 0; col < annotationTable.getColumnCount(); col++) {
                     if (col > 0) writer.print("\t");
-                    Object value = annotationTable.getValueAt(row, col);
-                    writer.print(value != null ? value.toString() : "");
+                    writer.print(annotationTable.getColumnName(col));
                 }
                 writer.println();
-            }
-        }
+
+                // Write data
+                for (int row = 0; row < annotationTable.getRowCount(); row++) {
+                    for (int col = 0; col < annotationTable.getColumnCount(); col++) {
+                        if (col > 0) writer.print("\t");
+                        Object value = annotationTable.getValueAt(row, col);
+                        String text = value != null ? value.toString() : "";
+                        if (text.indexOf('\t') >= 0 || text.indexOf('\r') >= 0 || text.indexOf('\n') >= 0)
+                            throw new java.io.IOException("Cannot export row " + (row + 1) + ", column "
+                                + annotationTable.getColumnName(col) + ": value contains a tab or line break");
+                        writer.print(text);
+                    }
+                    writer.println();
+                }
+                writer.flush();
+                if (writer.checkError()) throw new java.io.IOException("Failed writing annotation export");
+            });
+            return null;
+        });
     }
     
     /**
@@ -1202,7 +1212,7 @@ public class AnnotationDataPanel extends JDialog {
             "This will permanently remove %d annotations and cannot be undone.\n\n" +
             "Type: %s\n" +
             "Count: %d annotations\n" +
-            "This will also delete the corresponding file: %s.tsv",
+            "This will also save an empty %s.tsv so old annotations cannot reappear.",
             selectedType.getShortName(),
             count,
             selectedType.getDescription(),
@@ -1216,16 +1226,10 @@ public class AnnotationDataPanel extends JDialog {
             
         if (result == JOptionPane.YES_OPTION) {
             try {
-                // Remove all annotations of this type
-                int removed = annotationData.removeAllAnnotationsOfType(selectedType);
+                // Publish the empty table first; a write failure leaves the live model intact.
+                int removed = targetSpecies.clearFunctionalAnnotations(selectedType);
                 
                 if (removed > 0) {
-                    // Delete the physical file
-                    deleteAnnotationFile(selectedType);
-                    
-                    // Save changes to update remaining files
-                    saveAnnotationChanges();
-                    
                     // Refresh the display
                     refreshData();
                     
@@ -1256,30 +1260,6 @@ public class AnnotationDataPanel extends JDialog {
     }
     
     /**
-     * Delete the physical annotation file for a type
-     */
-    private void deleteAnnotationFile(AnnotationType type) {
-        if (targetSpecies == null || targetSpecies.getFunctionalAnnotationDir() == null) {
-            return;
-        }
-        
-        try {
-            File annotationFile = new File(targetSpecies.getFunctionalAnnotationDir(), 
-                                         type.getShortName() + ".tsv");
-            
-            if (annotationFile.exists()) {
-                if (annotationFile.delete()) {
-                    logger.info("Deleted annotation file: " + annotationFile.getAbsolutePath());
-                } else {
-                    logger.warning("Failed to delete annotation file: " + annotationFile.getAbsolutePath());
-                }
-            }
-        } catch (Exception e) {
-            logger.warning("Error deleting annotation file: " + e.getMessage());
-        }
-    }
-    
-    /**
      * Save annotation changes to file system
      */
     private void saveAnnotationChanges() {
@@ -1287,7 +1267,7 @@ public class AnnotationDataPanel extends JDialog {
         
         try {
             // Save to species functional annotation directory
-            targetSpecies.saveFunctionalAnnotations();
+            targetSpecies.saveFunctionalAnnotationsChecked();
             
             logger.info("Saved annotation changes for species: " + targetSpecies.getSpeciesName());
             

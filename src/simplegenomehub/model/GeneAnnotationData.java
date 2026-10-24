@@ -13,6 +13,14 @@ import biocjava.bioDoer.Kegg.GeneEntry;
 import toolsKit.FileReader.BioFileReader;
 import simplegenomehub.util.fileio.TranscriptToGeneMapper;
 import simplegenomehub.util.fileio.GOOboParser;
+import simplegenomehub.util.fileio.AtomicFiles;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.security.DigestOutputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 import java.io.*;
 import java.time.LocalDateTime;
@@ -65,6 +73,7 @@ public class GeneAnnotationData {
         // For supporting dynamic columns (especially for custom annotations)
         private String[] columnValues;
         private String[] columnHeaders;
+        private Map<String, String> originalStandardFields;
         
         public GeneAnnotation(String geneId, String annotationId, String term, AnnotationType type) {
             this.geneId = geneId;
@@ -86,39 +95,102 @@ public class GeneAnnotationData {
             this.attributes = new HashMap<>();
             this.score = 0.0;
             
-            // For Custom annotations, do NOT set standard fields - use only dynamic data
-            // For other types, set standard fields from column values if available
-            if (type != AnnotationType.CUSTOM && columnValues != null && columnValues.length > 1) {
-                this.annotationId = columnValues[1]; // Second column typically annotation ID
-                if (columnValues.length > 2) {
-                    this.term = columnValues[2]; // Third column typically term
-                }
-                if (columnValues.length > 3) {
-                    this.description = columnValues[3]; // Fourth column typically description
-                }
-            } else if (type == AnnotationType.CUSTOM) {
-                // For Custom type, set minimal required fields for compatibility
-                this.annotationId = "custom_" + System.currentTimeMillis();
-                this.term = "";
-                this.description = "";
+            // A declared schema can reorder or extend standard columns. Keep its
+            // raw values intact while exposing the named fields to the editor.
+            int idColumn = annotationIdColumn();
+            this.annotationId = idColumn >= 0 ? columnValue(idColumn)
+                : type == AnnotationType.CUSTOM ? "custom_" + UUID.randomUUID()
+                : columnValue(1);
+            this.term = columnValue(findColumn("Term"));
+            this.description = columnValue(findColumn("Description"));
+            this.evidence = columnValue(findColumn("Evidence", "Class", "Domain", "Type"));
+            String scoreValue = columnValue(findColumn("Score"));
+            if (!scoreValue.isEmpty()) {
+                try { this.score = Double.parseDouble(scoreValue); }
+                catch (NumberFormatException ignored) { /* Preserve nonnumeric raw columns. */ }
             }
+            this.originalStandardFields = standardFields();
         }
         
         // Getters and setters
         public String getGeneId() { return geneId; }
         public String getAnnotationId() { return annotationId; }
         public String getTerm() { return term; }
-        public void setTerm(String term) { this.term = term; }
+        public void setTerm(String term) {
+            if (!Objects.equals(this.term, term)) updateColumn(term, "Term");
+            this.term = term;
+        }
         
         public String getDescription() { return description; }
-        public void setDescription(String description) { this.description = description; }
+        public void setDescription(String description) {
+            if (!Objects.equals(this.description, description)) updateColumn(description, "Description");
+            this.description = description;
+        }
         
         public AnnotationType getType() { return type; }
         public String getEvidence() { return evidence; }
-        public void setEvidence(String evidence) { this.evidence = evidence; }
+        public void setEvidence(String evidence) {
+            if (!Objects.equals(this.evidence, evidence)) updateColumn(evidence, "Evidence", "Class", "Domain", "Type");
+            this.evidence = evidence;
+        }
         
         public double getScore() { return score; }
-        public void setScore(double score) { this.score = score; }
+        public void setScore(double score) {
+            if (Double.compare(this.score, score) != 0) updateColumn(Double.toString(score), "Score");
+            this.score = score;
+        }
+
+        private int findColumn(String... names) {
+            if (columnHeaders == null) return -1;
+            for (String name : names) {
+                for (int i = 1; i < columnHeaders.length; i++) {
+                    if (columnHeaders[i] != null && normalizeColumn(columnHeaders[i]).equals(normalizeColumn(name)))
+                        return i;
+                }
+            }
+            return -1;
+        }
+
+        private int annotationIdColumn() {
+            return findColumn("Annotation_ID", type.getShortName() + "_ID", "GO_ID", "KEGG_ID", "InterPro_ID", "Pfam_ID");
+        }
+
+        private static String normalizeColumn(String header) {
+            return header.trim().replace("_", "").replace(" ", "").toLowerCase(Locale.ROOT);
+        }
+
+        private String columnValue(int index) {
+            return columnValues == null || index < 0 ? "" : annotationValue(columnValues, index);
+        }
+
+        private void updateColumn(String value, String... names) {
+            int index = findColumn(names);
+            if (columnValues == null || index < 0) return;
+            if (columnValues.length <= index) columnValues = Arrays.copyOf(columnValues, index + 1);
+            columnValues[index] = value == null ? "" : value;
+        }
+
+        private Map<String, String> standardFields() {
+            Map<String, String> fields = new LinkedHashMap<>();
+            fields.put("Term", term);
+            fields.put("Description", description);
+            fields.put("Evidence", evidence);
+            fields.put("Score", Double.toString(score));
+            return fields;
+        }
+
+        private void validateStandardFields() throws IOException {
+            if (columnValues == null || originalStandardFields == null) return;
+            for (Map.Entry<String, String> field : standardFields().entrySet()) {
+                String value = field.getValue();
+                if (value == null || value.isEmpty() || ("Score".equals(field.getKey()) && score == 0.0)
+                    || Objects.equals(value, originalStandardFields.get(field.getKey()))) continue;
+                int index = "Evidence".equals(field.getKey())
+                    ? findColumn("Evidence", "Class", "Domain", "Type") : findColumn(field.getKey());
+                if (index < 0) throw new IOException("Cannot save edited " + field.getKey()
+                    + " for gene " + geneId + ": annotation header has no matching column");
+            }
+        }
         
         public Map<String, String> getAttributes() { return attributes; }
         public void setAttribute(String key, String value) { attributes.put(key, value); }
@@ -129,6 +201,32 @@ public class GeneAnnotationData {
         public void setColumnData(String[] headers, String[] values) { 
             this.columnHeaders = headers != null ? headers.clone() : null;
             this.columnValues = values != null ? values.clone() : null;
+            this.originalStandardFields = standardFields();
+        }
+
+        /** Preserve the loaded schema and unknown columns before applying editor setters. */
+        public GeneAnnotation copyForEdit(String newGeneId, String newAnnotationId, AnnotationType newType) {
+            GeneAnnotation copy = new GeneAnnotation(newGeneId, newAnnotationId, term, newType);
+            copy.description = description;
+            copy.evidence = evidence;
+            copy.score = score;
+            copy.attributes.putAll(attributes);
+            copy.setColumnData(columnHeaders, columnValues);
+            if (originalStandardFields != null) copy.originalStandardFields = new LinkedHashMap<>(originalStandardFields);
+            if (copy.columnValues != null) {
+                if (copy.columnValues.length == 0)
+                    throw new IllegalArgumentException("Annotation has no gene identifier column");
+                copy.columnValues[0] = newGeneId;
+                int idColumn = annotationIdColumn();
+                if (idColumn < 0 && type != AnnotationType.CUSTOM && copy.columnValues.length > 1) idColumn = 1;
+                if (idColumn >= 0) {
+                    if (copy.columnValues.length <= idColumn) copy.columnValues = Arrays.copyOf(copy.columnValues, idColumn + 1);
+                    copy.columnValues[idColumn] = newAnnotationId;
+                } else if (!Objects.equals(annotationId, newAnnotationId)) {
+                    throw new IllegalArgumentException("Cannot edit annotation ID: annotation header has no matching column");
+                }
+            }
+            return copy;
         }
         
         /**
@@ -227,6 +325,10 @@ public class GeneAnnotationData {
     
     // Store the original source file for Custom annotations (for direct copying)
     private File originalSourceFile;
+    private byte[] originalSourceDigest;
+    private byte[] originalCustomState;
+    // Distinguish an explicit deletion from annotation types not loaded yet.
+    private final Set<AnnotationType> explicitlyClearedTypes = EnumSet.noneOf(AnnotationType.class);
     
     /**
      * Constructor
@@ -271,19 +373,18 @@ public class GeneAnnotationData {
      * Load GO annotations from file using TBtools GoAnnoPipe
      */
     public boolean loadGOAnnotations(File file) {
-        try {
-            GoAnnoPipe goPipe = new GoAnnoPipe();
-            
-            // Use TBtools BioFileReader for robust file parsing
-            BioFileReader bio = new BioFileReader(file);
+        try (BufferedReader bio = openAnnotationReader(file)) {
+            List<GeneAnnotation> parsed = new ArrayList<>();
             String line;
             int lineNum = 0;
             
             while ((line = bio.readLine()) != null) {
                 lineNum++;
-                if (line.startsWith("#") || line.trim().isEmpty()) continue;
+                if (line.startsWith("\uFEFF")) line = line.substring(1);
+                if (line.trim().startsWith("#") || line.trim().isEmpty()) continue;
                 
-                String[] parts = line.split("\t");
+                String[] parts = line.split("\t", -1);
+                if (isAnnotationHeader(parts)) continue;
                 if (parts.length < 2) continue;  // 只需要至少2列：geneId和goId
                 
                 String geneId = parts[0].trim();
@@ -324,9 +425,9 @@ public class GeneAnnotationData {
                     }
                 }
                 
-                addAnnotation(annotation);
+                parsed.add(annotation);
             }
-            bio.close();
+            for (GeneAnnotation annotation : parsed) addAnnotation(annotation);
             
             updateStatistics();
             logger.info("Loaded GO annotations from: " + file.getName() + 
@@ -343,14 +444,16 @@ public class GeneAnnotationData {
      * Load KEGG annotations from file
      */
     public boolean loadKEGGAnnotations(File file) {
-        try {
-            BioFileReader bio = new BioFileReader(file);
+        try (BufferedReader bio = openAnnotationReader(file)) {
+            List<GeneAnnotation> parsed = new ArrayList<>();
             String line;
             
             while ((line = bio.readLine()) != null) {
-                if (line.startsWith("#") || line.trim().isEmpty()) continue;
+                if (line.startsWith("\uFEFF")) line = line.substring(1);
+                if (line.trim().startsWith("#") || line.trim().isEmpty()) continue;
                 
-                String[] parts = line.split("\t");
+                String[] parts = line.split("\t", -1);
+                if (isAnnotationHeader(parts)) continue;
                 if (parts.length < 2) continue;  // 只需要至少2列：geneId和keggId
                 
                 String geneId = parts[0].trim();
@@ -363,9 +466,9 @@ public class GeneAnnotationData {
                 annotation.setDescription(description.isEmpty() ? term : description);
                 annotation.setEvidence(evidence);
                 
-                addAnnotation(annotation);
+                parsed.add(annotation);
             }
-            bio.close();
+            for (GeneAnnotation annotation : parsed) addAnnotation(annotation);
             
             updateStatistics();
             logger.info("Loaded KEGG annotations from: " + file.getName() + 
@@ -382,114 +485,244 @@ public class GeneAnnotationData {
      * Load custom annotations from TSV file
      */
     public boolean loadCustomAnnotations(File file, AnnotationType type) {
-        // For Custom annotations, store the original source file for direct copying later
-        if (type == AnnotationType.CUSTOM) {
-            this.originalSourceFile = file;
-        }
-        
-        try {
-            BioFileReader bio = new BioFileReader(file);
-            String line;
-            String[] fileHeaders = null;
-            boolean firstLine = true;
-            
-            while ((line = bio.readLine()) != null) {
-                if (line.trim().isEmpty()) continue;
-                
-                String[] parts = line.split("\t");
-                
-                // Handle header line
-                if (line.startsWith("#") || firstLine) {
-                    if (line.startsWith("#")) {
-                        fileHeaders = line.substring(1).split("\t"); // Remove # prefix
-                    } else {
-                        // Check if first line looks like headers
-                        if (parts.length > 1 && parts[0].toLowerCase().contains("gene")) {
-                            fileHeaders = parts;
-                        } else {
-                            // Treat as data line
-                            firstLine = false;
-                            // Fall through to process as data
-                        }
-                    }
-                    
-                    if (fileHeaders != null) {
-                        // Trim all headers
-                        for (int i = 0; i < fileHeaders.length; i++) {
-                            fileHeaders[i] = fileHeaders[i].trim();
-                        }
-                        // Set the column headers for this annotation type
-                        setColumnHeaders(type, fileHeaders);
-                        firstLine = false;
-                        continue;
-                    }
-                }
-                
-                if (parts.length < 2) continue; // At least gene ID and one annotation field
-                
-                String geneId = parts[0].trim();
-                if (geneId.isEmpty()) continue;
-                
-                // Trim all parts
-                for (int i = 0; i < parts.length; i++) {
-                    parts[i] = parts[i].trim();
-                    if ("-".equals(parts[i])) {
-                        parts[i] = ""; // Convert "-" to empty string
-                    }
-                }
-                
-                // Check if this line has any meaningful annotation content (beyond gene ID)
-                boolean hasContent = false;
-                for (int i = 1; i < parts.length; i++) {
-                    if (!parts[i].isEmpty()) {
-                        hasContent = true;
-                        break;
-                    }
-                }
-                
-                if (!hasContent) {
-                    continue; // Skip lines with no annotation content
-                }
-                
-                // Create annotation with dynamic column data
-                GeneAnnotation annotation;
-                if (fileHeaders != null) {
-                    annotation = new GeneAnnotation(geneId, type, fileHeaders, parts);
-                } else {
-                    // Fallback to legacy method if no headers detected
-                    String annotationId = parts.length > 1 ? parts[1] : "";
-                    String term = parts.length > 2 ? parts[2] : "";
-                    String description = parts.length > 3 ? parts[3] : "";
-                    
-                    // Prioritize Description, then Term, then Annotation_ID
-                    String finalDescription = !description.isEmpty() ? description : 
-                                             (!term.isEmpty() ? term : annotationId);
-                    String finalAnnotationId = !annotationId.isEmpty() ? annotationId : 
-                                              (type.getShortName() + "_" + System.currentTimeMillis());
-                    
-                    annotation = new GeneAnnotation(geneId, finalAnnotationId, finalDescription, type);
-                    annotation.setDescription(finalDescription);
-                    
-                    if (parts.length > 4) {
-                        annotation.setEvidence(parts[4]);
-                    }
-                }
-                
-                addAnnotation(annotation);
-            }
-            bio.close();
-            
-            updateStatistics();
-            logger.info("Loaded " + type.getShortName() + " annotations from: " + file.getName() + 
-                       " (" + annotationCounts.get(type) + " annotations)");
-            return true;
-            
-        } catch (IOException e) {
+        try { return loadCustomAnnotations(file, type, "\t", false); }
+        catch (IOException e) {
             logger.log(Level.SEVERE, "Failed to load custom annotations from " + file, e);
             return false;
         }
     }
-    
+
+    /** Parse completely before replacing or appending any live annotation data. */
+    public boolean loadCustomAnnotations(File file, AnnotationType type, String delimiter,
+                                         boolean replaceExisting) throws IOException {
+        if (file == null || type == null || delimiter == null || delimiter.isEmpty())
+            throw new IOException("Annotation file, type and delimiter are required");
+        boolean preserveSource = type == AnnotationType.CUSTOM && "\t".equals(delimiter)
+            && !file.getName().toLowerCase(Locale.ROOT).endsWith(".gz")
+            && (replaceExisting || annotations.get(type).isEmpty());
+        byte[] sourceDigest = preserveSource ? digestFile(file.toPath()) : null;
+        List<String[]> rows = new ArrayList<>();
+        String[] fileHeaders = null;
+        int maximumColumns = 0;
+        int maximumColumnsLine = 0;
+        int lineNumber = 0;
+        boolean headerlessDataStarted = false;
+        // Canonical files are UTF-8. Published Windows versions also wrote
+        // native-charset files; retry those only after strict UTF-8 decoding fails.
+        java.nio.charset.Charset charset = StandardCharsets.UTF_8;
+        while (true) {
+            rows.clear();
+            fileHeaders = null;
+            maximumColumns = 0;
+            maximumColumnsLine = 0;
+            lineNumber = 0;
+            headerlessDataStarted = false;
+            try (BufferedReader reader = openAnnotationReader(file, charset)) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    lineNumber++;
+                    if (lineNumber == 1 && line.startsWith("\uFEFF")) line = line.substring(1);
+                    if (line.trim().isEmpty()) continue;
+                    String trimmed = line.trim();
+                    boolean comment = trimmed.startsWith("#");
+                    String candidate = comment ? line.stripLeading().substring(1) : line;
+                    String[] parts = candidate.split(java.util.regex.Pattern.quote(delimiter), -1);
+                    if (isAnnotationHeader(parts)) {
+                        for (int i = 0; i < parts.length; i++) parts[i] = parts[i].trim();
+                        if (fileHeaders == null && !rows.isEmpty()) {
+                            String[] establishedHeaders = legacyHeaders(type, maximumColumns);
+                            if (!Arrays.equals(establishedHeaders, parts))
+                                throw annotationFormatError(file, lineNumber,
+                                    "Annotation header changes columns after data has started");
+                        }
+                        if (fileHeaders != null && !Arrays.equals(fileHeaders, parts))
+                            throw annotationFormatError(file, lineNumber, "Conflicting annotation header");
+                        fileHeaders = parts;
+                        continue;
+                    }
+                    if (comment) continue;
+                    if (parts.length < 2)
+                        throw annotationFormatError(file, lineNumber, "Expected a gene identifier and annotation columns");
+                    parts[0] = parts[0].trim();
+                    if (parts[0].isEmpty())
+                        throw annotationFormatError(file, lineNumber, "Gene identifier is empty");
+                    boolean hasContent = false;
+                    for (int i = 1; i < parts.length; i++)
+                        if (!parts[i].trim().isEmpty() && !"-".equals(parts[i].trim())) hasContent = true;
+                    if (!hasContent) continue;
+                    if (fileHeaders == null) headerlessDataStarted = true;
+                    rows.add(parts);
+                    if (parts.length > maximumColumns) {
+                        maximumColumns = parts.length;
+                        maximumColumnsLine = lineNumber;
+                    }
+                }
+            } catch (java.nio.charset.CharacterCodingException badEncoding) {
+                java.nio.charset.Charset legacy = java.nio.charset.Charset.defaultCharset();
+                if (!charset.equals(StandardCharsets.UTF_8) || legacy.equals(StandardCharsets.UTF_8)) throw badEncoding;
+                charset = legacy;
+                continue;
+            }
+            break;
+        }
+        if (rows.isEmpty()) return false;
+        if (fileHeaders != null && maximumColumns > fileHeaders.length)
+            throw annotationFormatError(file, maximumColumnsLine, "A data row has more columns than the annotation header");
+        boolean headerless = fileHeaders == null || headerlessDataStarted;
+        if (headerless) fileHeaders = legacyHeaders(type, maximumColumns);
+        if (!replaceExisting && !annotations.get(type).isEmpty()
+            && !Arrays.equals(getColumnHeaders(type), fileHeaders))
+            throw annotationFormatError(file, 1, "Annotation columns differ from the existing dataset");
+
+        Map<String, List<GeneAnnotation>> parsed = new LinkedHashMap<>();
+        for (String[] row : rows) {
+            String[] values = Arrays.copyOf(row, fileHeaders.length);
+            for (int i = row.length; i < values.length; i++) values[i] = "";
+            GeneAnnotation annotation;
+            if (headerless) {
+                String id = annotationValue(values, 1);
+                String term = annotationValue(values, 2);
+                String description = annotationValue(values, 3);
+                String legacyDescription = !description.isEmpty() ? description : !term.isEmpty() ? term : id;
+                annotation = new GeneAnnotation(values[0], id, legacyDescription, type);
+                annotation.setDescription(legacyDescription);
+                annotation.setEvidence(annotationValue(values, 4));
+                annotation.setColumnData(fileHeaders, values);
+            } else {
+                annotation = new GeneAnnotation(values[0], type, fileHeaders, values);
+            }
+            parsed.computeIfAbsent(values[0], ignored -> new ArrayList<>()).add(annotation);
+        }
+        if (preserveSource && !Arrays.equals(sourceDigest, digestFile(file.toPath())))
+            throw new IOException("Annotation source changed while being read: " + file);
+        Map<String, List<GeneAnnotation>> committed = new LinkedHashMap<>();
+        if (!replaceExisting) for (Map.Entry<String, List<GeneAnnotation>> entry : annotations.get(type).entrySet())
+            committed.put(entry.getKey(), new ArrayList<>(entry.getValue()));
+        for (Map.Entry<String, List<GeneAnnotation>> entry : parsed.entrySet())
+            committed.computeIfAbsent(entry.getKey(), ignored -> new ArrayList<>()).addAll(entry.getValue());
+        annotations.put(type, committed);
+        explicitlyClearedTypes.remove(type);
+        columnHeaders.put(type, fileHeaders.clone());
+        annotationCounts.put(type, committed.values().stream().mapToInt(List::size).sum());
+        // Preserve descriptions enriched from GO/KEGG backends for other types.
+        for (List<GeneAnnotation> geneAnnotations : parsed.values())
+            for (GeneAnnotation annotation : geneAnnotations)
+                if (annotation.getDescription() != null)
+                    termDescriptions.put(annotation.getAnnotationId(), annotation.getDescription());
+        updateStatistics();
+        if (type == AnnotationType.CUSTOM) {
+            originalSourceFile = preserveSource ? file : null;
+            originalSourceDigest = sourceDigest;
+            originalCustomState = preserveSource ? digestAnnotations(type) : null;
+        }
+        logger.info("Loaded " + type.getShortName() + " annotations from: " + file.getName()
+            + " (" + rows.size() + " annotations)");
+        return true;
+    }
+
+    public static boolean isAnnotationHeader(String[] fields) {
+        if (fields.length < 2 || !fields[0].trim().matches("(?i)gene(?:_?id)?")) return false;
+        for (int i = 1; i < fields.length; i++) if (!fields[i].trim().isEmpty()) return true;
+        return false;
+    }
+
+    /** Read a bounded preview using the same raw UTF-8/native and gzip decoding as imports.
+     * Comments do not consume the data-row limit, so long annotation preambles remain importable.
+     */
+    public static List<String> readAnnotationPreview(File file, int maximumDataLines) throws IOException {
+        if (maximumDataLines < 1) throw new IllegalArgumentException("Preview size must be positive");
+        java.nio.charset.Charset charset = StandardCharsets.UTF_8;
+        while (true) {
+            List<String> lines = new ArrayList<>();
+            int dataLines = 0;
+            int comments = 0;
+            boolean keptHeader = false;
+            try (BufferedReader reader = openAnnotationReader(file, charset)) {
+                String line;
+                boolean first = true;
+                while (dataLines < maximumDataLines && (line = reader.readLine()) != null) {
+                    if (first && line.startsWith("\uFEFF")) line = line.substring(1);
+                    first = false;
+                    if (line.trim().isEmpty() || line.trim().startsWith("#")) {
+                        boolean header = false;
+                        if (line.trim().startsWith("#")) {
+                            String candidate = line.stripLeading().substring(1);
+                            for (String delimiter : new String[]{"\t", ",", ";"})
+                                header |= isAnnotationHeader(candidate.split(java.util.regex.Pattern.quote(delimiter), -1));
+                        }
+                        if (comments++ < 20 || (header && !keptHeader)) lines.add(line);
+                        keptHeader |= header;
+                    } else {
+                        lines.add(line);
+                        dataLines++;
+                    }
+                }
+                return lines;
+            } catch (java.nio.charset.CharacterCodingException badEncoding) {
+                java.nio.charset.Charset legacy = java.nio.charset.Charset.defaultCharset();
+                if (!charset.equals(StandardCharsets.UTF_8) || legacy.equals(StandardCharsets.UTF_8)) throw badEncoding;
+                charset = legacy;
+            }
+        }
+    }
+
+    /** True only after an explicit model clear, not for a lazily unloaded type. */
+    public boolean isAnnotationTypeExplicitlyCleared(AnnotationType type) {
+        return explicitlyClearedTypes.contains(type);
+    }
+
+    /** Open unfiltered annotation text after validating its encoding completely.
+     * This lets table and metadata readers use the same UTF-8/native fallback
+     * without publishing half a parse before a decoding error near the end.
+     */
+    public static BufferedReader openAnnotationReader(File file) throws IOException {
+        java.nio.charset.Charset charset = StandardCharsets.UTF_8;
+        while (true) {
+            try (BufferedReader reader = openAnnotationReader(file, charset)) {
+                char[] buffer = new char[8192];
+                while (reader.read(buffer) != -1) { /* Validate before returning a live reader. */ }
+            } catch (java.nio.charset.CharacterCodingException badEncoding) {
+                java.nio.charset.Charset legacy = java.nio.charset.Charset.defaultCharset();
+                if (!charset.equals(StandardCharsets.UTF_8) || legacy.equals(StandardCharsets.UTF_8)) throw badEncoding;
+                charset = legacy;
+                continue;
+            }
+            return openAnnotationReader(file, charset);
+        }
+    }
+
+    private static BufferedReader openAnnotationReader(File file, java.nio.charset.Charset charset) throws IOException {
+        InputStream input = Files.newInputStream(file.toPath());
+        try {
+            if (file.getName().toLowerCase(Locale.ROOT).endsWith(".gz"))
+                input = new java.util.zip.GZIPInputStream(input);
+            return new BufferedReader(new InputStreamReader(input, charset.newDecoder()
+                .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)));
+        } catch (IOException | RuntimeException failure) {
+            input.close();
+            throw failure;
+        }
+    }
+
+    private static IOException annotationFormatError(File file, int line, String message) {
+        return new IOException(message + " at " + file.getName() + ":" + line);
+    }
+
+    private static String annotationValue(String[] values, int index) {
+        if (index >= values.length || values[index] == null) return "";
+        String value = values[index].trim();
+        return "-".equals(value) ? "" : value;
+    }
+
+    private static String[] legacyHeaders(AnnotationType type, int count) {
+        String[] standard = {"Gene_ID", type == AnnotationType.CUSTOM ? "Annotation_ID" : type.getShortName() + "_ID",
+            "Term", "Description", "Evidence"};
+        String[] headers = new String[count];
+        for (int i = 0; i < count; i++) headers[i] = i < standard.length ? standard[i] : "Column_" + (i + 1);
+        return headers;
+    }
+
     /**
      * Add single annotation
      */
@@ -501,6 +734,7 @@ public class GeneAnnotationData {
         
         Map<String, List<GeneAnnotation>> typeAnnotations = annotations.get(type);
         typeAnnotations.computeIfAbsent(geneId, k -> new ArrayList<>()).add(annotation);
+        explicitlyClearedTypes.remove(type);
         
         // Update term descriptions
         if (annotation.getDescription() != null) {
@@ -528,10 +762,10 @@ public class GeneAnnotationData {
         }
         
         // Find and remove the specific annotation
-        boolean removed = geneAnnotationList.removeIf(ann -> 
-            ann.getAnnotationId().equals(annotation.getAnnotationId()) &&
-            ann.getTerm() != null ? ann.getTerm().equals(annotation.getTerm()) : annotation.getTerm() == null
-        );
+        int previousSize = geneAnnotationList.size();
+        boolean removed = geneAnnotationList.removeIf(ann ->
+            Objects.equals(ann.getAnnotationId(), annotation.getAnnotationId())
+                && Objects.equals(ann.getTerm(), annotation.getTerm()));
         
         if (removed) {
             // If no annotations left for this gene, remove the gene entry
@@ -540,8 +774,10 @@ public class GeneAnnotationData {
             }
             
             // Update count
-            annotationCounts.put(type, annotationCounts.get(type) - 1);
-            
+            annotationCounts.put(type, annotationCounts.get(type) - (previousSize - geneAnnotationList.size()));
+            if (typeAnnotations.isEmpty()) explicitlyClearedTypes.add(type);
+            updateStatistics();
+
             logger.info("Removed annotation: " + geneId + " -> " + annotation.getAnnotationId());
             return true;
         }
@@ -561,6 +797,8 @@ public class GeneAnnotationData {
         if (removed != null && !removed.isEmpty()) {
             // Update count
             annotationCounts.put(type, annotationCounts.get(type) - removed.size());
+            if (typeAnnotations.isEmpty()) explicitlyClearedTypes.add(type);
+            updateStatistics();
             logger.info("Removed " + removed.size() + " annotations for gene: " + geneId + " (type: " + type + ")");
             return true;
         }
@@ -579,6 +817,7 @@ public class GeneAnnotationData {
         
         typeAnnotations.clear();
         annotationCounts.put(type, 0);
+        explicitlyClearedTypes.add(type);
         
         // Clear column headers for this type
         columnHeaders.remove(type);
@@ -606,9 +845,11 @@ public class GeneAnnotationData {
                 int count = removed.size();
                 totalRemoved += count;
                 annotationCounts.put(type, annotationCounts.get(type) - count);
+                if (typeAnnotations.isEmpty()) explicitlyClearedTypes.add(type);
             }
         }
-        
+        updateStatistics();
+
         if (totalRemoved > 0) {
             logger.info("Removed " + totalRemoved + " annotations for gene: " + geneId);
         }
@@ -628,6 +869,7 @@ public class GeneAnnotationData {
         // Clear all annotations of this type
         typeAnnotations.clear();
         annotationCounts.put(type, 0);
+        explicitlyClearedTypes.add(type);
         
         // Update statistics
         rebuildStatisticsFromAnnotations();
@@ -646,6 +888,7 @@ public class GeneAnnotationData {
             totalRemoved += annotationCounts.get(type);
             annotations.get(type).clear();
             annotationCounts.put(type, 0);
+            explicitlyClearedTypes.add(type);
         }
         
         // Clear additional data
@@ -706,6 +949,11 @@ public class GeneAnnotationData {
                     geneAnnotation.setDescription(originalAnnotation.getDescription());
                     geneAnnotation.setEvidence(originalAnnotation.getEvidence());
                     geneAnnotation.setScore(originalAnnotation.getScore());
+                    String[] columnValues = originalAnnotation.getColumnValues();
+                    if (columnValues != null) {
+                        columnValues[0] = geneId;
+                        geneAnnotation.setColumnData(originalAnnotation.getColumnHeaders(), columnValues);
+                    }
                     
                     // Copy attributes
                     for (Map.Entry<String, String> attr : originalAnnotation.getAttributes().entrySet()) {
@@ -1184,114 +1432,128 @@ public class GeneAnnotationData {
      * Save annotation data to file
      */
     public boolean saveToFile(File file, AnnotationType type) {
-        // For Custom annotations, if we have the original source file, just copy it directly
-        if (type == AnnotationType.CUSTOM && originalSourceFile != null && originalSourceFile.exists()) {
-            try {
-                java.nio.file.Files.copy(originalSourceFile.toPath(), file.toPath(), 
-                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                logger.info("Copied original Custom annotation file to: " + file.getAbsolutePath());
-                return true;
-            } catch (Exception e) {
-                logger.warning("Failed to copy original Custom file, falling back to reconstruction: " + e.getMessage());
-                // Fall through to normal saving logic
-            }
-        }
-        
-        try (PrintWriter writer = new PrintWriter(new FileWriter(file))) {
-            // Get column headers for this type
-            String[] headers = getColumnHeaders(type);
-            
-            // For Custom annotations, check if we need to use dynamic headers from the first annotation
-            if (type == AnnotationType.CUSTOM) {
-                Map<String, List<GeneAnnotation>> typeAnnotations = annotations.get(type);
-                if (!typeAnnotations.isEmpty()) {
-                    // Get the first annotation to check if it has custom headers
-                    GeneAnnotation firstAnnotation = typeAnnotations.values().iterator().next().get(0);
-                    if (firstAnnotation.getColumnCount() > 0 && firstAnnotation.getColumnHeaders() != null) {
-                        headers = firstAnnotation.getColumnHeaders();
-                    }
-                }
-            }
-            
-            // Write header line
-            writer.print("#");
-            for (int i = 0; i < headers.length; i++) {
-                if (i > 0) writer.print("\t");
-                writer.print(headers[i]);
-            }
-            writer.println();
-            
-            Map<String, List<GeneAnnotation>> typeAnnotations = annotations.get(type);
-            for (Map.Entry<String, List<GeneAnnotation>> entry : typeAnnotations.entrySet()) {
-                String geneId = entry.getKey();
-                for (GeneAnnotation annotation : entry.getValue()) {
-                    // For Custom annotations with dynamic column data, preserve exact structure
-                    if (type == AnnotationType.CUSTOM && annotation.getColumnCount() > 0) {
-                        // Use original column data exactly as imported
-                        String[] columnValues = annotation.getColumnValues();
-                        for (int i = 0; i < columnValues.length; i++) {
-                            if (i > 0) writer.print("\t");
-                            writer.print(columnValues[i] != null ? columnValues[i] : "");
-                        }
-                    } else if (annotation.getColumnCount() > 0) {
-                        // Use dynamic column data for other types, but align with headers
-                        String[] columnValues = annotation.getColumnValues();
-                        for (int i = 0; i < Math.min(columnValues.length, headers.length); i++) {
-                            if (i > 0) writer.print("\t");
-                            writer.print(columnValues[i] != null ? columnValues[i] : "");
-                        }
-                        // Fill remaining columns if headers are more than values
-                        for (int i = columnValues.length; i < headers.length; i++) {
-                            writer.print("\t");
-                        }
-                    } else {
-                        // Use legacy format for older annotations without dynamic data
-                        for (int i = 0; i < headers.length; i++) {
-                            if (i > 0) writer.print("\t");
-                            
-                            switch (i) {
-                                case 0: 
-                                    writer.print(geneId); 
-                                    break;
-                                case 1: 
-                                    writer.print(annotation.getAnnotationId() != null ? annotation.getAnnotationId() : ""); 
-                                    break;
-                                case 2: 
-                                    writer.print(annotation.getTerm() != null ? annotation.getTerm() : ""); 
-                                    break;
-                                case 3: 
-                                    writer.print(annotation.getDescription() != null ? annotation.getDescription() : ""); 
-                                    break;
-                                case 4: 
-                                    // For GO terms, use the namespace as Class; for others use Evidence
-                                    String classOrEvidence = annotation.getEvidence() != null ? annotation.getEvidence() : "";
-                                    if (type == AnnotationType.GO) {
-                                        String namespace = annotation.getAttributes().get("go_namespace");
-                                        if (namespace != null) {
-                                            classOrEvidence = namespace;
-                                        }
-                                    }
-                                    writer.print(classOrEvidence);
-                                    break;
-                                default: 
-                                    writer.print(""); 
-                                    break;
-                            }
-                        }
-                    }
-                    writer.println();
-                }
-            }
-            
-            logger.info("Saved " + type.getShortName() + " annotations to: " + file.getAbsolutePath());
-            return true;
-            
-        } catch (IOException e) {
+        try { saveToFileChecked(file, type); return true; }
+        catch (IOException e) {
             logger.log(Level.SEVERE, "Failed to save annotations to " + file, e);
             return false;
         }
     }
-    
+
+    /** Publish a complete file; failure leaves an existing destination intact. */
+    public void saveToFileChecked(File file, AnnotationType type) throws IOException {
+        if (file == null || type == null) throw new IOException("Annotation destination and type are required");
+        boolean unchangedCustom = type == AnnotationType.CUSTOM && originalSourceFile != null
+            && originalSourceFile.isFile() && Arrays.equals(originalCustomState, digestAnnotations(type))
+            && Arrays.equals(originalSourceDigest, digestFile(originalSourceFile.toPath()));
+        AtomicFiles.withLock(file.toPath(), () -> {
+            if (unchangedCustom) {
+                Path destination = file.toPath().toAbsolutePath();
+                if (Files.exists(destination) && Files.isSameFile(originalSourceFile.toPath(), destination)) return null;
+                Path temporary = Files.createTempFile(destination.getParent(), ".sgh-annotation-", ".tmp");
+                try {
+                    Files.copy(originalSourceFile.toPath(), temporary, StandardCopyOption.REPLACE_EXISTING);
+                    if (!Arrays.equals(originalSourceDigest, digestFile(temporary)))
+                        throw new IOException("Annotation source changed while being copied: " + originalSourceFile);
+                    AtomicFiles.replace(temporary, destination);
+                } finally { Files.deleteIfExists(temporary); }
+            } else {
+                AtomicFiles.write(file.toPath(), writer -> writeAnnotations(writer, type));
+            }
+            return null;
+        });
+        logger.info("Saved " + type.getShortName() + " annotations to: " + file.getAbsolutePath());
+    }
+
+    private void writeAnnotations(Writer target, AnnotationType type) throws IOException {
+        writeAnnotations(target, type, true);
+    }
+
+    private void writeAnnotations(Writer target, AnnotationType type, boolean validate) throws IOException {
+        PrintWriter writer = new PrintWriter(target);
+        String[] headers = getColumnHeaders(type);
+        writer.println("#" + String.join("\t", headers));
+        Map<String, List<GeneAnnotation>> typeAnnotations = annotations.get(type);
+        for (String geneId : new TreeSet<>(typeAnnotations.keySet())) {
+            for (GeneAnnotation annotation : typeAnnotations.get(geneId)) {
+                if (validate) annotation.validateStandardFields();
+                String[] values = annotation.getColumnValues();
+                if (validate && values != null && annotation.columnHeaders != null
+                    && !Arrays.equals(headers, annotation.columnHeaders))
+                    throw new IOException("Annotation columns differ from the dataset for gene " + geneId);
+                if (values != null && values.length > headers.length)
+                    throw new IOException("Annotation has more values than its column headers: " + geneId);
+                for (int i = 0; i < headers.length; i++) {
+                    if (i > 0) writer.print("\t");
+                    String value;
+                    if (i == 0) value = geneId;
+                    else if (values != null) value = i < values.length ? values[i] : "";
+                    else switch (i) {
+                        case 0: value = geneId; break;
+                        case 1: value = annotation.getAnnotationId(); break;
+                        case 2: value = annotation.getTerm(); break;
+                        case 3: value = annotation.getDescription(); break;
+                        case 4:
+                            value = type == AnnotationType.GO
+                                ? annotation.getAttributes().getOrDefault("go_namespace", annotation.getEvidence())
+                                : annotation.getEvidence();
+                            break;
+                        default: value = "";
+                    }
+                    if (validate && value != null
+                        && (value.indexOf('\t') >= 0 || value.indexOf('\r') >= 0 || value.indexOf('\n') >= 0))
+                        throw new IOException("Cannot save gene " + geneId + ", column " + headers[i]
+                            + " (" + (i + 1) + "): value contains a tab or line break");
+                    writer.print(value == null ? "" : value);
+                }
+                writer.println();
+            }
+        }
+        writer.flush();
+        if (writer.checkError()) throw new IOException("Failed writing annotation data");
+    }
+
+    private static MessageDigest newDigest() {
+        try { return MessageDigest.getInstance("SHA-256"); }
+        catch (NoSuchAlgorithmException impossible) { throw new IllegalStateException(impossible); }
+    }
+
+    private static byte[] digestFile(Path path) throws IOException {
+        MessageDigest digest = newDigest();
+        try (InputStream input = Files.newInputStream(path)) {
+            byte[] buffer = new byte[16384];
+            int length;
+            while ((length = input.read(buffer)) >= 0) if (length != 0) digest.update(buffer, 0, length);
+        }
+        return digest.digest();
+    }
+
+    private byte[] digestAnnotations(AnnotationType type) throws IOException {
+        MessageDigest digest = newDigest();
+        try (Writer writer = new OutputStreamWriter(
+                new DigestOutputStream(OutputStream.nullOutputStream(), digest), StandardCharsets.UTF_8)) {
+            writeAnnotations(writer, type, false);
+        }
+        // Include edited standard fields even when the original dynamic schema
+        // has no column for them, so a source copy cannot silently hide the edit.
+        try (DataOutputStream state = new DataOutputStream(
+                new DigestOutputStream(OutputStream.nullOutputStream(), digest))) {
+            Map<String, List<GeneAnnotation>> typed = annotations.get(type);
+            for (String geneId : new TreeSet<>(typed.keySet())) {
+                for (GeneAnnotation annotation : typed.get(geneId)) {
+                    for (String value : annotation.standardFields().values()) {
+                        if (value == null) state.writeInt(-1);
+                        else {
+                            byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+                            state.writeInt(bytes.length);
+                            state.write(bytes);
+                        }
+                    }
+                }
+            }
+        }
+        return digest.digest();
+    }
+
     // Getters
     public String getDatasetId() { return datasetId; }
     public String getName() { return name; }

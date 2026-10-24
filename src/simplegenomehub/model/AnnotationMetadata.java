@@ -5,6 +5,7 @@
 package simplegenomehub.model;
 
 import java.io.*;
+import simplegenomehub.util.fileio.AtomicFiles;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -113,166 +114,102 @@ public class AnnotationMetadata {
      * Analyze file and generate comprehensive metadata
      */
     public static AnnotationMetadata analyzeFile(File file, GeneAnnotationData.AnnotationType type) {
-        AnnotationMetadata metadata = new AnnotationMetadata(file, type);
-        
         try {
-            metadata.performFileAnalysis(file);
-            metadata.calculateQualityMetrics();
-            metadata.determinePerformanceHints();
-            
-            logger.info("Generated metadata for " + file.getName() + ": " + 
-                       metadata.totalLines + " lines, " + 
-                       metadata.uniqueGenes + " genes, " + 
-                       metadata.totalAnnotations + " annotations");
-            
-        } catch (Exception e) {
+            return analyzeFileChecked(file, type);
+        } catch (IOException e) {
             logger.severe("Failed to analyze file " + file.getName() + ": " + e.getMessage());
-            metadata.addWarning("File analysis failed: " + e.getMessage());
+            AnnotationMetadata failed = new AnnotationMetadata(file, type);
+            failed.addWarning("File analysis failed: " + e.getMessage());
+            return failed;
         }
-        
+    }
+
+    /** Return metadata only after the complete annotation file has been validated. */
+    public static AnnotationMetadata analyzeFileChecked(File file, GeneAnnotationData.AnnotationType type)
+            throws IOException {
+        AnnotationMetadata metadata = new AnnotationMetadata(file, type);
+        metadata.performFileAnalysis(file);
+        metadata.calculateQualityMetrics();
+        metadata.determinePerformanceHints();
+        logger.info("Generated metadata for " + file.getName() + ": " + metadata.totalLines
+            + " lines, " + metadata.uniqueGenes + " genes, " + metadata.totalAnnotations + " annotations");
         return metadata;
     }
-    
-    /**
-     * Perform comprehensive file analysis
-     */
+
     private void performFileAnalysis(File file) throws IOException {
         Set<String> uniqueGeneSet = new HashSet<>();
         Set<String> uniqueTranscriptSet = new HashSet<>();
         Set<String> uniqueTermSet = new HashSet<>();
         Map<String, Set<String>> columnValueSets = new HashMap<>();
-        
-        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+        boolean delimiterDetected = false;
+        try (BufferedReader reader = GeneAnnotationData.openAnnotationReader(file)) {
             String line;
-            int lineNumber = 0;
-            boolean headerProcessed = false;
-            
             while ((line = reader.readLine()) != null) {
-                lineNumber++;
                 totalLines++;
-                
-                // Store sample lines for preview
-                if (sampleLines.size() < 20) {
-                    sampleLines.add(line);
-                }
-                
-                // Handle empty lines
+                if (totalLines == 1 && line.startsWith("\uFEFF")) line = line.substring(1);
+                if (sampleLines.size() < 20) sampleLines.add(line);
                 if (line.trim().isEmpty()) {
                     emptyLines++;
                     continue;
                 }
-                
-                // Handle comment lines
-                if (line.startsWith("#")) {
-                    commentLines++;
-                    
-                    // Check if comment line contains headers
-                    if (!headerProcessed && line.length() > 1) {
-                        String headerLine = line.substring(1).trim();
-                        if (headerLine.contains("\t") || headerLine.contains(",")) {
-                            analyzeHeaders(headerLine);
-                            headerProcessed = true;
-                        }
+                boolean comment = line.stripLeading().startsWith("#");
+                if (comment) commentLines++;
+                String candidate = comment ? line.stripLeading().substring(1) : line;
+                String candidateDelimiter = delimiterDetected ? delimiter : detectDelimiter(candidate);
+                String[] parts = candidate.split(java.util.regex.Pattern.quote(candidateDelimiter), -1);
+                if (GeneAnnotationData.isAnnotationHeader(parts)) {
+                    for (int i = 0; i < parts.length; i++) parts[i] = parts[i].trim();
+                    if (columnHeaders != null && !Arrays.equals(columnHeaders, parts))
+                        throw formatError(file, "Conflicting annotation header");
+                    if (columnHeaders == null && dataLines > 0) {
+                        generateDefaultHeaders();
+                        if (!Arrays.equals(columnHeaders, parts))
+                            throw formatError(file, "Annotation header changes columns after data has started");
                     }
-                    continue;
-                }
-                
-                // Handle data lines
-                dataLines++;
-                
-                // Auto-detect delimiter if not set
-                if (delimiter.equals("\t") && !line.contains("\t") && line.contains(",")) {
-                    delimiter = ",";
-                } else if (delimiter.equals("\t") && !line.contains("\t") && line.contains(";")) {
-                    delimiter = ";";
-                }
-                
-                // Parse data line
-                String[] parts = line.split(delimiter, -1);
-                
-                // Update column count
-                if (columnCount == 0 || parts.length > columnCount) {
+                    columnHeaders = parts;
                     columnCount = parts.length;
-                }
-                
-                // Check for header row (first data line)
-                if (!headerProcessed && lineNumber <= 3) {
-                    if (isLikelyHeaderRow(parts)) {
-                        analyzeHeaders(line);
-                        hasHeaderRow = true;
-                        headerProcessed = true;
-                        dataLines--; // Don't count header as data
-                        continue;
-                    }
-                }
-                
-                // Validate line format
-                if (parts.length < 2) {
-                    malformedLines++;
-                    addWarning("Line " + lineNumber + ": insufficient columns (" + parts.length + ")");
+                    hasHeaderRow = true;
+                    delimiter = candidateDelimiter;
+                    delimiterDetected = true;
                     continue;
                 }
-                
-                // Analyze data content
-                analyzeDataLine(parts, uniqueGeneSet, uniqueTranscriptSet, uniqueTermSet, columnValueSets);
+                if (comment) continue;
+                delimiter = candidateDelimiter;
+                delimiterDetected = true;
+                if (parts.length < 2 || parts[0].trim().isEmpty())
+                    throw formatError(file, "Expected a gene identifier and annotation columns");
+                if (columnHeaders != null && parts.length > columnHeaders.length)
+                    throw formatError(file, "Data row has more columns than its header");
+                boolean hasContent = false;
+                for (int i = 1; i < parts.length; i++)
+                    if (!parts[i].trim().isEmpty() && !"-".equals(parts[i].trim())) hasContent = true;
+                if (!hasContent) continue;
+                columnCount = Math.max(columnCount, parts.length);
+                dataLines++;
                 totalAnnotations++;
-                
-                // Update gene annotation counts
+                analyzeDataLine(parts, uniqueGeneSet, uniqueTranscriptSet, uniqueTermSet, columnValueSets);
                 String geneId = parts[0].trim();
-                if (!geneId.isEmpty()) {
-                    geneAnnotationCounts.put(geneId, geneAnnotationCounts.getOrDefault(geneId, 0) + 1);
-                }
+                geneAnnotationCounts.put(geneId, geneAnnotationCounts.getOrDefault(geneId, 0) + 1);
             }
         }
-        
-        // Final statistics
         uniqueGenes = uniqueGeneSet.size();
         uniqueTranscripts = uniqueTranscriptSet.size();
-        
-        // Process term frequency
-        for (String term : uniqueTermSet) {
-            termFrequency.put(term, termFrequency.getOrDefault(term, 0) + 1);
-        }
-        
-        // Generate column samples
+        for (String term : uniqueTermSet) termFrequency.put(term, termFrequency.getOrDefault(term, 0) + 1);
         generateColumnSamples(columnValueSets);
-        
-        // Set default headers if not detected
-        if (columnHeaders == null && columnCount > 0) {
-            generateDefaultHeaders();
-        }
+        if (columnHeaders == null && columnCount > 0) generateDefaultHeaders();
     }
-    
-    /**
-     * Analyze header line to extract column information
-     */
-    private void analyzeHeaders(String headerLine) {
-        String[] headers = headerLine.split(delimiter, -1);
-        columnHeaders = new String[headers.length];
-        
-        for (int i = 0; i < headers.length; i++) {
-            columnHeaders[i] = headers[i].trim();
-        }
-        
-        columnCount = headers.length;
-        hasHeaderRow = true;
+
+    private IOException formatError(File file, String reason) {
+        return new IOException(reason + " at " + file.getName() + ":" + totalLines);
     }
-    
-    /**
-     * Check if a line is likely a header row
-     */
-    private boolean isLikelyHeaderRow(String[] parts) {
-        if (parts.length < 2) return false;
-        
-        // Check for common header patterns
-        String firstColumn = parts[0].toLowerCase().trim();
-        return firstColumn.contains("gene") || 
-               firstColumn.contains("id") || 
-               firstColumn.equals("gene_id") ||
-               firstColumn.equals("geneid") ||
-               parts.length > 2 && parts[1].toLowerCase().contains("annotation");
+
+    private static String detectDelimiter(String line) {
+        if (line.indexOf('\t') >= 0) return "\t";
+        if (line.indexOf(',') >= 0) return ",";
+        if (line.indexOf(';') >= 0) return ";";
+        return "\t";
     }
-    
+
     /**
      * Analyze individual data line
      */
@@ -339,7 +276,7 @@ public class AnnotationMetadata {
                     columnHeaders[i] = "Gene_ID";
                     break;
                 case 1:
-                    columnHeaders[i] = annotationType != null ? 
+                    columnHeaders[i] = annotationType != null && annotationType != GeneAnnotationData.AnnotationType.CUSTOM ?
                         annotationType.getShortName() + "_ID" : "Annotation_ID";
                     break;
                 case 2:
@@ -347,6 +284,9 @@ public class AnnotationMetadata {
                     break;
                 case 3:
                     columnHeaders[i] = "Description";
+                    break;
+                case 4:
+                    columnHeaders[i] = "Evidence";
                     break;
                 default:
                     columnHeaders[i] = "Column_" + (i + 1);
@@ -365,8 +305,8 @@ public class AnnotationMetadata {
         }
         
         // Data quality score based on various factors
-        double malformedRatio = (double) malformedLines / totalLines;
-        double emptyRatio = (double) emptyLines / totalLines;
+        double malformedRatio = totalLines == 0 ? 0.0 : (double) malformedLines / totalLines;
+        double emptyRatio = totalLines == 0 ? 0.0 : (double) emptyLines / totalLines;
         double columnConsistency = columnCount > 0 ? 1.0 : 0.0;
         
         dataQualityScore = Math.max(0.0, 
@@ -440,8 +380,9 @@ public class AnnotationMetadata {
      * Save metadata to JSON file
      */
     public boolean saveToFile(File metadataFile) {
-        try (FileWriter writer = new FileWriter(metadataFile)) {
-            gson.toJson(this, writer);
+        try {
+            String encoded = gson.toJson(this);
+            AtomicFiles.write(metadataFile.toPath(), writer -> writer.write(encoded));
             logger.info("Saved metadata to: " + metadataFile.getAbsolutePath());
             return true;
         } catch (IOException e) {
@@ -454,7 +395,7 @@ public class AnnotationMetadata {
      * Load metadata from JSON file
      */
     public static AnnotationMetadata loadFromFile(File metadataFile) {
-        try (FileReader reader = new FileReader(metadataFile)) {
+        try (Reader reader = GeneAnnotationData.openAnnotationReader(metadataFile)) {
             AnnotationMetadata metadata = gson.fromJson(reader, AnnotationMetadata.class);
             logger.info("Loaded metadata from: " + metadataFile.getAbsolutePath());
             return metadata;

@@ -102,6 +102,13 @@
         <pathelement location="${build.classes.dir}"/>
         <pathelement location="${build.test.classes.dir}"/>
     </path>
+
+    <!-- Prefer this checkout's classes over any Hub classes in the host JAR. -->
+    <path id="regression.classpath">
+        <pathelement location="${build.test.classes.dir}"/>
+        <pathelement location="${build.classes.dir}"/>
+        <path refid="compile.classpath"/>
+    </path>
     
     <!-- Initialize build directories -->
     <target name="init">
@@ -189,6 +196,29 @@
         </junit>
     </target>
     
+    <!-- Self-contained correctness tests; no external JUnit installation is required. -->
+    <target name="compile-regression" depends="compile,check-toolchain-javac">
+        <javac srcdir="${test.src.dir}"
+               includes="simplegenomehub/regression/**/*.java"
+               destdir="${build.test.classes.dir}"
+               classpathref="regression.classpath"
+               includeantruntime="false"
+               encoding="UTF-8"
+               source="11" target="11" fork="true"
+               executable="${javac.source.dir}/bin/${javac.command}"/>
+    </target>
+
+    <target name="test-regression" depends="compile-regression"
+            description="Verify annotation import, table display and persistence using isolated fixtures">
+        <mkdir dir="${build.dir}/regression/home-annotation"/>
+        <java classname="simplegenomehub.regression.AnnotationPersistenceRegression"
+              classpathref="regression.classpath" fork="true" failonerror="true">
+            <sysproperty key="java.awt.headless" value="true"/>
+            <sysproperty key="user.home" value="${build.dir}/regression/home-annotation"/>
+            <arg value="${build.dir}/regression/annotation"/>
+        </java>
+    </target>
+
     <!-- Create JAR file -->
     <target name="jar" depends="compile">
         <jar jarfile="${dist.dir}/SimpleGenomeHub.jar" basedir="${build.classes.dir}">
@@ -908,6 +938,7 @@ UninstallDisplayIcon={#InstalledAppIcon}
 DefaultDirName={autopf}\SimpleGenomeHub
 DefaultGroupName=SimpleGenomeHub
 DisableProgramGroupPage=yes
+UsePreviousAppDir=no
 OutputDir=]]>${installers.dir}<![CDATA[
 OutputBaseFilename=]]>${windows.installer.name}<![CDATA[
 Compression=lzma2
@@ -922,17 +953,30 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription:
 [Files]
 Source: "]]>${windows.package.dir}<![CDATA[\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
+[InstallDelete]
+Type: filesandordirs; Name: "{app}\app"
+Type: filesandordirs; Name: "{app}\lib"
+Type: filesandordirs; Name: "{app}\tbtools"
+Type: filesandordirs; Name: "{app}\bin"
+Type: filesandordirs; Name: "{app}\runtime"
+; Remove shortcuts left behind by older installers that placed them in the
+; Start Menu / Desktop root (or pointed them at an old install folder).
+Type: files; Name: "{commonprograms}\SimpleGenomeHub.lnk"
+Type: files; Name: "{commonprograms}\SimpleGenomeHub (Debug Console).lnk"
+Type: files; Name: "{commonprograms}\Uninstall SimpleGenomeHub.lnk"
+Type: files; Name: "{commondesktop}\SimpleGenomeHub.lnk"
+
 [Icons]
 #ifdef HasAppIcon
-Name: "{autoprograms}\SimpleGenomeHub"; Filename: "{sys}\wscript.exe"; Parameters: """{app}\launch.vbs"""; WorkingDir: "{app}"; IconFilename: "{#InstalledAppIcon}"; Comment: "Launch SimpleGenomeHub"
-Name: "{autoprograms}\Uninstall SimpleGenomeHub"; Filename: "{uninstallexe}"; IconFilename: "{#InstalledAppIcon}"; Comment: "Uninstall SimpleGenomeHub"
-Name: "{autodesktop}\SimpleGenomeHub"; Filename: "{sys}\wscript.exe"; Parameters: """{app}\launch.vbs"""; WorkingDir: "{app}"; IconFilename: "{#InstalledAppIcon}"; Tasks: desktopicon; Comment: "Launch SimpleGenomeHub"
+Name: "{autoprograms}\SimpleGenomeHub\SimpleGenomeHub"; Filename: "{app}\launch.vbs"; WorkingDir: "{app}"; IconFilename: "{#InstalledAppIcon}"; Comment: "Launch SimpleGenomeHub"
+Name: "{autoprograms}\SimpleGenomeHub\Uninstall SimpleGenomeHub"; Filename: "{uninstallexe}"; IconFilename: "{#InstalledAppIcon}"; Comment: "Uninstall SimpleGenomeHub"
+Name: "{autodesktop}\SimpleGenomeHub"; Filename: "{app}\launch.vbs"; WorkingDir: "{app}"; IconFilename: "{#InstalledAppIcon}"; Tasks: desktopicon; Comment: "Launch SimpleGenomeHub"
 #else
-Name: "{autoprograms}\SimpleGenomeHub"; Filename: "{sys}\wscript.exe"; Parameters: """{app}\launch.vbs"""; WorkingDir: "{app}"; Comment: "Launch SimpleGenomeHub"
-Name: "{autoprograms}\Uninstall SimpleGenomeHub"; Filename: "{uninstallexe}"; Comment: "Uninstall SimpleGenomeHub"
-Name: "{autodesktop}\SimpleGenomeHub"; Filename: "{sys}\wscript.exe"; Parameters: """{app}\launch.vbs"""; WorkingDir: "{app}"; Tasks: desktopicon; Comment: "Launch SimpleGenomeHub"
+Name: "{autoprograms}\SimpleGenomeHub\SimpleGenomeHub"; Filename: "{app}\launch.vbs"; WorkingDir: "{app}"; Comment: "Launch SimpleGenomeHub"
+Name: "{autoprograms}\SimpleGenomeHub\Uninstall SimpleGenomeHub"; Filename: "{uninstallexe}"; Comment: "Uninstall SimpleGenomeHub"
+Name: "{autodesktop}\SimpleGenomeHub"; Filename: "{app}\launch.vbs"; WorkingDir: "{app}"; Tasks: desktopicon; Comment: "Launch SimpleGenomeHub"
 #endif
-Name: "{autoprograms}\SimpleGenomeHub (Debug Console)"; Filename: "{app}\run-debug.bat"; WorkingDir: "{app}"; Comment: "Launch SimpleGenomeHub with a diagnostic console"
+Name: "{autoprograms}\SimpleGenomeHub\SimpleGenomeHub (Debug Console)"; Filename: "{app}\run-debug.bat"; WorkingDir: "{app}"; Comment: "Launch SimpleGenomeHub with a diagnostic console"
 
 [Run]
 Filename: "{sys}\wscript.exe"; Parameters: """{app}\launch.vbs"""; WorkingDir: "{app}"; Description: "Launch SimpleGenomeHub"; Flags: nowait postinstall skipifsilent runhidden

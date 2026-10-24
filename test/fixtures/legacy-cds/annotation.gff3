@@ -1,0 +1,32 @@
+##gff-version 3
+# All coordinates are 1-based inclusive. Every CDS is phase 0 and length is divisible by 3.
+pSingleChr	fixture	gene	7	24	.	+	.	ID=pSingleGene
+pSingleChr	fixture	mRNA	7	24	.	+	.	ID=pSingle;Parent=pSingleGene
+pSingleChr	fixture	exon	7	24	.	+	.	ID=pSingle.exon1;Parent=pSingle
+pSingleChr	fixture	CDS	7	24	.	+	0	ID=pSingle.cds1;Parent=pSingle
+mSingleChr	fixture	gene	7	24	.	-	.	ID=mSingleGene
+mSingleChr	fixture	mRNA	7	24	.	-	.	ID=mSingle;Parent=mSingleGene
+mSingleChr	fixture	exon	7	24	.	-	.	ID=mSingle.exon1;Parent=mSingle
+mSingleChr	fixture	CDS	7	24	.	-	0	ID=mSingle.cds1;Parent=mSingle
+pMultiChr	fixture	gene	1	23	.	+	.	ID=pMultiGene
+pMultiChr	fixture	mRNA	1	23	.	+	.	ID=pLong;Parent=pMultiGene
+pMultiChr	fixture	exon	1	9	.	+	.	ID=pLong.exon1;Parent=pLong
+pMultiChr	fixture	CDS	1	9	.	+	0	ID=pLong.cds1;Parent=pLong
+pMultiChr	fixture	exon	15	23	.	+	.	ID=pLong.exon2;Parent=pLong
+pMultiChr	fixture	CDS	15	23	.	+	0	ID=pLong.cds2;Parent=pLong
+pMultiChr	fixture	mRNA	1	23	.	+	.	ID=pShort;Parent=pMultiGene
+pMultiChr	fixture	exon	1	6	.	+	.	ID=pShort.exon1;Parent=pShort
+pMultiChr	fixture	CDS	1	6	.	+	0	ID=pShort.cds1;Parent=pShort
+pMultiChr	fixture	exon	18	23	.	+	.	ID=pShort.exon2;Parent=pShort
+pMultiChr	fixture	CDS	18	23	.	+	0	ID=pShort.cds2;Parent=pShort
+mMultiChr	fixture	gene	1	23	.	-	.	ID=mMultiGene
+mMultiChr	fixture	mRNA	1	23	.	-	.	ID=mLong;Parent=mMultiGene
+mMultiChr	fixture	exon	1	9	.	-	.	ID=mLong.exon1;Parent=mLong
+mMultiChr	fixture	CDS	1	9	.	-	0	ID=mLong.cds1;Parent=mLong
+mMultiChr	fixture	exon	15	23	.	-	.	ID=mLong.exon2;Parent=mLong
+mMultiChr	fixture	CDS	15	23	.	-	0	ID=mLong.cds2;Parent=mLong
+mMultiChr	fixture	mRNA	1	23	.	-	.	ID=mShort;Parent=mMultiGene
+mMultiChr	fixture	exon	1	6	.	-	.	ID=mShort.exon1;Parent=mShort
+mMultiChr	fixture	CDS	1	6	.	-	0	ID=mShort.cds1;Parent=mShort
+mMultiChr	fixture	exon	18	23	.	-	.	ID=mShort.exon2;Parent=mShort
+mMultiChr	fixture	CDS	18	23	.	-	0	ID=mShort.cds2;Parent=mShort
