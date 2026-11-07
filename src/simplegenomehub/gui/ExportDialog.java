@@ -198,7 +198,10 @@ public class ExportDialog extends JDialog {
         
         // Add format descriptions
         JTextArea descArea = new JTextArea(
-            "• Complete Archive: All files in ZIP format\n" +
+            "• Complete Archive: The whole data unit in one ZIP - sequences, annotations,\n" +
+            "   expression, functional annotation, gene sets, genome analysis,\n" +
+            "   population results (VCF + FST) and metadata. BlastDB is excluded\n" +
+            "   because it is rebuilt from the sequence files.\n" +
             "• Genome Sequences: Only FASTA genome files\n" +
             "• Annotation Files: Only GFF3/GTF annotation files\n" +
             "• Statistics: Numerical data and metadata only\n" +
@@ -394,7 +397,7 @@ public class ExportDialog extends JDialog {
                         publish("Exporting: " + species.getDisplayName());
                         setProgress((i * 100) / exportList.size());
                         
-                        if (!DataExporter.exportSpecies(species, outputDir, format)) {
+                        if (!DataExporter.exportSpecies(species, outputDir, format, this::publish)) {
                             success = false;
                             publish("ERROR: Failed to export " + species.getDisplayName());
                         } else {
