@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="LegacySequenceRegression" default="regression" basedir="..">
+    <!-- Compile the actual legacy implementations without a bundled host JAR. -->
+    <property name="legacy.source.dir" location="src"/>
+    <property name="legacy.build.dir" location="build/legacy-sequence"/>
+    <property name="legacy.fixtures" location="test/fixtures/legacy-cds"/>
+
+    <target name="compile">
+        <mkdir dir="${legacy.build.dir}/classes"/>
+        <mkdir dir="${legacy.build.dir}/test-classes"/>
+        <mkdir dir="${legacy.build.dir}/tmp"/>
+        <javac srcdir="${legacy.source.dir}" destdir="${legacy.build.dir}/classes"
+               includes="simplegenomehub/util/fileio/SequenceExtractor.java,simplegenomehub/util/fileio/RepresentativeTranscriptSelector.java"
+               includeantruntime="false" encoding="UTF-8" release="11"/>
+        <javac srcdir="test" destdir="${legacy.build.dir}/test-classes"
+               includes="simplegenomehub/regression/LegacyCdsStrandRegression.java"
+               classpath="${legacy.build.dir}/classes"
+               includeantruntime="false" encoding="UTF-8" release="11"/>
+    </target>
+
+    <target name="regression" depends="compile">
+        <java classname="simplegenomehub.regression.LegacyCdsStrandRegression"
+              fork="true" failonerror="true">
+            <classpath>
+                <pathelement location="${legacy.build.dir}/classes"/>
+                <pathelement location="${legacy.build.dir}/test-classes"/>
+            </classpath>
+            <sysproperty key="legacy.fixtures" value="${legacy.fixtures}"/>
+            <sysproperty key="java.awt.headless" value="true"/>
+            <sysproperty key="java.io.tmpdir" value="${legacy.build.dir}/tmp"/>
+        </java>
+    </target>
+</project>
