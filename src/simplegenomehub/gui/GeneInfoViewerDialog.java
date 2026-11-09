@@ -203,7 +203,7 @@ public class GeneInfoViewerDialog extends JDialog {
         gbc.insets = new Insets(4, 4, 4, 4);
 
         gbc.gridx = 0; gbc.gridy = 0;
-        gbc.gridwidth = 3;
+        gbc.gridwidth = 4;
         gbc.weightx = 1.0;
         gbc.fill = GridBagConstraints.HORIZONTAL;
         speciesCombo.setPreferredSize(SimpleGenomeHubStyle.SIZE_COMBO_280_X_30);
@@ -218,16 +218,13 @@ public class GeneInfoViewerDialog extends JDialog {
         gbc.gridx = 1;
         gbc.weightx = 0.0;
         gbc.fill = GridBagConstraints.NONE;
-        inputPanel.add(clearButton, gbc);
+        inputPanel.add(searchButton, gbc);
 
         gbc.gridx = 2;
-        inputPanel.add(exampleButton, gbc);
+        inputPanel.add(clearButton, gbc);
 
-        gbc.gridx = 0; gbc.gridy = 2;
-        gbc.gridwidth = 3;
-        gbc.weightx = 1.0;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        inputPanel.add(searchButton, gbc);
+        gbc.gridx = 3;
+        inputPanel.add(exampleButton, gbc);
 
         // Status panel
         JPanel statusPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
@@ -2035,6 +2032,7 @@ public class GeneInfoViewerDialog extends JDialog {
         private JLabel statsLabel;
         private JButton exportButton;
         private JButton heatmapButton;
+        private JButton manageExpressionButton;
         private GeneSearchResult currentResult;
         private Map<String, ExpressionExperimentPanel> experimentPanels;
         
@@ -2055,6 +2053,8 @@ public class GeneInfoViewerDialog extends JDialog {
             exportButton.setEnabled(false);
             heatmapButton = new JButton("Generate Multi-Experiment Heatmap");
             heatmapButton.setEnabled(false);
+            manageExpressionButton = new JButton("Expression Data Management...");
+            manageExpressionButton.setEnabled(false);
         }
         
         private void setupLayout() {
@@ -2069,6 +2069,7 @@ public class GeneInfoViewerDialog extends JDialog {
             
             JPanel buttonPanel = new JPanel(new FlowLayout());
             buttonPanel.add(heatmapButton);
+            buttonPanel.add(manageExpressionButton);
             buttonPanel.add(exportButton);
             bottomPanel.add(buttonPanel, BorderLayout.EAST);
             
@@ -2078,20 +2079,31 @@ public class GeneInfoViewerDialog extends JDialog {
         private void setupEventHandlers() {
             exportButton.addActionListener(e -> exportAllExpressionData());
             heatmapButton.addActionListener(e -> generateMultiExperimentHeatmap());
+            manageExpressionButton.addActionListener(e -> {
+                if (currentResult != null && currentResult.getSpecies() != null) {
+                    new ExpressionDataPanel(SwingUtilities.getWindowAncestor(this), currentResult.getSpecies()).setVisible(true);
+                }
+            });
         }
         
         public void loadGeneData(GeneSearchResult result) {
+            clearData();
             this.currentResult = result;
+            manageExpressionButton.setEnabled(result != null && result.getSpecies() != null);
+            ExpressionExperimentLoader.LoadResult loading = result != null ? result.getExpressionLoadResult() : null;
             
             if (result == null || !result.hasExpressionData()) {
-                clearData();
-                statsLabel.setText("No expression data available for gene: " + 
-                    (result != null ? result.getGeneId() : "unknown"));
+                String status = loading != null && loading.getReadyMatrixCount() == 0 ? loading.getSummary()
+                    : "No expression value found for gene: " + (result != null ? result.getGeneId() : "unknown");
+                statsLabel.setText(status);
+                if (loading != null) {
+                    String detail = loading.getDetails();
+                    if (loading.getReadyMatrixCount() > 0)
+                        detail += "\n\nNo matching gene or transcript ID was found in the available matrices for: " + result.getGeneId();
+                    showLoadingDetails(detail);
+                }
                 return;
             }
-            
-            // Clear existing tabs and panels
-            clearData();
             
             Map<String, ExpressionData> expressionData = result.getExpressionData();
             int totalSamples = 0;
@@ -2119,9 +2131,24 @@ public class GeneInfoViewerDialog extends JDialog {
             
             exportButton.setEnabled(true);
             heatmapButton.setEnabled(totalSamples > 0);
+            if (loading != null && !loading.getIssues().isEmpty()) showLoadingDetails(loading.getDetails());
+        }
+
+        private void showLoadingDetails(String text) {
+            JTextArea details = new JTextArea(text);
+            details.setEditable(false);
+            details.setLineWrap(true);
+            details.setWrapStyleWord(true);
+            details.setCaretPosition(0);
+            experimentTabs.addTab("Loading Details", new JScrollPane(details));
         }
         
         private String getExperimentDisplayName(String experimentId) {
+            if (currentResult != null && currentResult.getSpecies() != null) {
+                ExpressionExperiment experiment = currentResult.getSpecies().getExpressionExperiment(experimentId);
+                if (experiment != null && experiment.getTitle() != null && !experiment.getTitle().trim().isEmpty())
+                    return experiment.getTitle();
+            }
             // Try to get a more user-friendly name based on experiment ID
             if (experimentId.contains("1758030625546")) {
                 return "Pineapple Peel Color (" + experimentId.substring(experimentId.length() - 6) + ")";
@@ -2191,6 +2218,7 @@ public class GeneInfoViewerDialog extends JDialog {
             statsLabel.setText("No expression data loaded");
             exportButton.setEnabled(false);
             heatmapButton.setEnabled(false);
+            manageExpressionButton.setEnabled(false);
             currentResult = null;
         }
         

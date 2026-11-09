@@ -4,6 +4,9 @@
 package simplegenomehub.model;
 
 import java.io.*;
+import com.google.gson.*;
+import simplegenomehub.util.fileio.JsonMetadataSupport;
+import simplegenomehub.util.fileio.AtomicFiles;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -72,6 +75,7 @@ public class ExpressionExperiment {
     private ExpressionMatrix.DataType storedDataType;
     private File metadataFile;
     private String notes;
+    private JsonObject originalMetadata;
     
     /**
      * Sample information class
@@ -253,139 +257,129 @@ public class ExpressionExperiment {
      * Save experiment metadata to JSON file
      */
     public boolean saveMetadata(File file) {
-        this.metadataFile = file;
-        
-        try (PrintWriter writer = new PrintWriter(new FileWriter(file))) {
-            writer.println("{");
-            writer.println("  \"experiment_id\": \"" + escapeJson(experimentId) + "\",");
-            writer.println("  \"title\": \"" + escapeJson(title) + "\",");
-            writer.println("  \"description\": \"" + escapeJson(description) + "\",");
-            writer.println("  \"experiment_type\": \"" + experimentType.getShortName() + "\",");
-            ExpressionMatrix.DataType metadataType = getStoredDataType();
-            writer.println("  \"data_type\": \""
-                + (metadataType != null ? metadataType.getShortName() : "") + "\",");
-            writer.println("  \"import_time\": \"" + importTime.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) + "\",");
-            
-            if (experimentDate != null) {
-                writer.println("  \"experiment_date\": \"" + experimentDate.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) + "\",");
-            }
-            
-            writer.println("  \"investigator\": \"" + escapeJson(investigator) + "\",");
-            writer.println("  \"institution\": \"" + escapeJson(institution) + "\",");
-            writer.println("  \"platform\": \"" + escapeJson(platform) + "\",");
-            writer.println("  \"library_prep\": \"" + escapeJson(libraryPrep) + "\",");
-            writer.println("  \"read_type\": \"" + escapeJson(readType) + "\",");
-            writer.println("  \"strandedness\": \"" + escapeJson(strandedness) + "\",");
-            
-            // Technical details
-            writer.println("  \"technical_details\": {");
-            boolean first = true;
-            for (Map.Entry<String, String> entry : technicalDetails.entrySet()) {
-                if (!first) writer.println(",");
-                writer.print("    \"" + escapeJson(entry.getKey()) + "\": \"" + escapeJson(entry.getValue()) + "\"");
-                first = false;
-            }
-            writer.println();
-            writer.println("  },");
-            
-            // Samples
-            writer.println("  \"samples\": [");
-            for (int i = 0; i < samples.size(); i++) {
-                SampleInfo sample = samples.get(i);
-                writer.println("    {");
-                writer.println("      \"sample_id\": \"" + escapeJson(sample.getSampleId()) + "\",");
-                writer.println("      \"sample_name\": \"" + escapeJson(sample.getSampleName()) + "\",");
-                writer.println("      \"tissue\": \"" + escapeJson(sample.getTissue()) + "\",");
-                writer.println("      \"condition\": \"" + escapeJson(sample.getCondition()) + "\",");
-                writer.println("      \"treatment\": \"" + escapeJson(sample.getTreatment()) + "\",");
-                writer.println("      \"time_point\": \"" + escapeJson(sample.getTimePoint()) + "\",");
-                writer.println("      \"biological_replicate\": \"" + escapeJson(sample.getBiologicalReplicate()) + "\",");
-                writer.println("      \"technical_replicate\": \"" + escapeJson(sample.getTechnicalReplicate()) + "\",");
-                writer.println("      \"group\": \"" + escapeJson(sampleGroups.get(sample.getSampleId())) + "\"");
-                writer.print("    }");
-                if (i < samples.size() - 1) writer.println(",");
-            }
-            writer.println();
-            writer.println("  ],");
-            
-            writer.println("  \"notes\": \"" + escapeJson(notes) + "\"");
-            writer.println("}");
-            
-            logger.info("Experiment metadata saved to: " + file.getAbsolutePath());
+        try {
+            AtomicFiles.withLock(file.toPath(), () -> {
+                JsonObject existing = file.isFile() && file.length() > 0 ? JsonMetadataSupport.read(file) : originalMetadata;
+                JsonObject metadata = new JsonObject();
+                metadata.addProperty("experiment_id", experimentId);
+                metadata.addProperty("title", title);
+                metadata.addProperty("description", description);
+                metadata.addProperty("experiment_type", experimentType == null ? "" : experimentType.getShortName());
+                metadata.addProperty("data_type", getStoredDataType() == null ? "" : getStoredDataType().getShortName());
+                metadata.addProperty("import_time", importTime == null ? "" : importTime.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+                metadata.addProperty("experiment_date", experimentDate == null ? "" : experimentDate.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+                metadata.addProperty("investigator", investigator);
+                metadata.addProperty("institution", institution);
+                metadata.addProperty("platform", platform);
+                metadata.addProperty("library_prep", libraryPrep);
+                metadata.addProperty("read_type", readType);
+                metadata.addProperty("strandedness", strandedness);
+                metadata.addProperty("notes", notes);
+                metadata.add("technical_details", new Gson().toJsonTree(technicalDetails));
+                JsonArray sampleList = new JsonArray();
+                for (SampleInfo sample : samples) {
+                    JsonObject entry = new JsonObject();
+                    entry.addProperty("sample_id", sample.sampleId);
+                    entry.addProperty("sample_name", sample.sampleName);
+                    entry.addProperty("tissue", sample.tissue);
+                    entry.addProperty("condition", sample.condition);
+                    entry.addProperty("treatment", sample.treatment);
+                    entry.addProperty("time_point", sample.timePoint);
+                    entry.addProperty("biological_replicate", sample.biologicalReplicate);
+                    entry.addProperty("technical_replicate", sample.technicalReplicate);
+                    entry.addProperty("group", sampleGroups.get(sample.sampleId));
+                    sampleList.add(entry);
+                }
+                metadata.add("samples", sampleList);
+                JsonObject merged = JsonMetadataSupport.merge(existing, metadata).getAsJsonObject();
+                JsonMetadataSupport.write(file, merged);
+                originalMetadata = merged;
+                metadataFile = file;
+                return null;
+            });
             return true;
-            
-        } catch (IOException e) {
-            logger.log(Level.SEVERE, "Failed to save experiment metadata", e);
+        } catch (IOException | RuntimeException failure) {
+            logger.log(Level.SEVERE, "Failed to save experiment metadata", failure);
             return false;
         }
     }
-    
-    /**
-     * Load experiment metadata from JSON file
-     */
+
+    /** Update only the explicitly chosen legacy data type, keeping every other JSON field. */
+    public void saveExplicitDataType(ExpressionMatrix.DataType type) throws IOException {
+        if (type == null || metadataFile == null) throw new IOException("A data type and metadata file are required");
+        AtomicFiles.withLock(metadataFile.toPath(), () -> {
+            JsonObject current = JsonMetadataSupport.read(metadataFile);
+            current.addProperty("data_type", type.getShortName());
+            JsonMetadataSupport.write(metadataFile, current);
+            originalMetadata = current;
+            storedDataType = type;
+            return null;
+        });
+    }
+
     public static ExpressionExperiment loadMetadata(File file) {
-        // Simple JSON parsing - in production should use proper JSON library
-        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
-            StringBuilder content = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                content.append(line);
-            }
-            
-            String json = content.toString();
-            
-            // Extract basic fields
-            String experimentId = extractJsonValue(json, "experiment_id");
-            String title = extractJsonValue(json, "title");
-            
-            ExpressionExperiment experiment = new ExpressionExperiment(experimentId, title);
-            experiment.metadataFile = file;
-            experiment.description = extractJsonValue(json, "description");
-            experiment.storedDataType = parseDataType(extractJsonValue(json, "data_type"));
-            experiment.investigator = extractJsonValue(json, "investigator");
-            experiment.institution = extractJsonValue(json, "institution");
-            experiment.platform = extractJsonValue(json, "platform");
-            experiment.libraryPrep = extractJsonValue(json, "library_prep");
-            experiment.readType = extractJsonValue(json, "read_type");
-            experiment.strandedness = extractJsonValue(json, "strandedness");
-            experiment.notes = extractJsonValue(json, "notes");
-            
-            // Parse experiment type
-            String typeStr = extractJsonValue(json, "experiment_type");
-            for (ExperimentType type : ExperimentType.values()) {
-                if (type.getShortName().equals(typeStr)) {
-                    experiment.experimentType = type;
-                    break;
-                }
-            }
-            
-            logger.info("Loaded experiment metadata: " + experimentId);
-            return experiment;
-            
-        } catch (Exception e) {
-            logger.log(Level.SEVERE, "Failed to load experiment metadata from " + file, e);
+        if (file == null || !simplegenomehub.util.fileio.FileSetTransaction.isPublished(file.toPath())) return null;
+        try {
+            return loadMetadataChecked(file);
+        } catch (Exception failure) {
+            logger.log(Level.SEVERE, "Failed to load experiment metadata from " + file, failure);
             return null;
         }
     }
-    
-    /**
-     * Simple JSON value extraction
-     */
-    private static String extractJsonValue(String json, String key) {
-        String keyPattern = "\"" + key + "\"";
-        int keyIndex = json.indexOf(keyPattern);
-        if (keyIndex == -1) return "";
-        
-        int colonIndex = json.indexOf(":", keyIndex);
-        if (colonIndex == -1) return "";
-        
-        int startIndex = json.indexOf("\"", colonIndex) + 1;
-        if (startIndex == 0) return "";
-        
-        int endIndex = json.indexOf("\"", startIndex);
-        if (endIndex == -1) return "";
-        
-        return json.substring(startIndex, endIndex);
+
+    /** Shared loaders need the original failure instead of an indistinguishable null. */
+    public static ExpressionExperiment loadMetadataChecked(File file) throws IOException {
+        if (file == null) throw new IOException("Expression metadata file is required");
+        if (!simplegenomehub.util.fileio.FileSetTransaction.isPublished(file.toPath()))
+            throw new IOException("Expression metadata publication is unfinished: " + file);
+        try {
+            JsonObject json = JsonMetadataSupport.read(file);
+            String id = JsonMetadataSupport.text(json, "experiment_id");
+            if (id.trim().isEmpty() || id.contains("/") || id.contains("\\") || id.equals(".") || id.equals(".."))
+                throw new IOException("Missing or invalid experiment_id in " + file);
+            ExpressionExperiment experiment = new ExpressionExperiment(id, JsonMetadataSupport.text(json, "title"));
+            experiment.originalMetadata = json;
+            experiment.metadataFile = file;
+            experiment.description = JsonMetadataSupport.text(json, "description");
+            experiment.storedDataType = parseDataType(JsonMetadataSupport.text(json, "data_type"));
+            experiment.investigator = JsonMetadataSupport.text(json, "investigator");
+            experiment.institution = JsonMetadataSupport.text(json, "institution");
+            experiment.platform = JsonMetadataSupport.text(json, "platform");
+            experiment.libraryPrep = JsonMetadataSupport.text(json, "library_prep");
+            experiment.readType = JsonMetadataSupport.text(json, "read_type");
+            experiment.strandedness = JsonMetadataSupport.text(json, "strandedness");
+            experiment.notes = JsonMetadataSupport.text(json, "notes");
+            String typeStr = JsonMetadataSupport.text(json, "experiment_type");
+            for (ExperimentType type : ExperimentType.values()) if (type.getShortName().equals(typeStr)) experiment.experimentType = type;
+            String imported = JsonMetadataSupport.text(json, "import_time");
+            if (!imported.isEmpty()) {
+                try { experiment.importTime = LocalDateTime.parse(imported); }
+                catch (java.time.format.DateTimeParseException invalid) { logger.warning("Unrecognized legacy import date: " + imported); }
+            }
+            String dated = JsonMetadataSupport.text(json, "experiment_date");
+            if (!dated.isEmpty()) {
+                try { experiment.experimentDate = LocalDateTime.parse(dated); }
+                catch (java.time.format.DateTimeParseException invalid) { logger.warning("Unrecognized legacy experiment date: " + dated); }
+            }
+            if (json.has("technical_details") && json.get("technical_details").isJsonObject())
+                for (Map.Entry<String, JsonElement> entry : json.getAsJsonObject("technical_details").entrySet())
+                    if (entry.getValue().isJsonPrimitive()) experiment.technicalDetails.put(entry.getKey(), entry.getValue().getAsString());
+            if (json.has("samples") && json.get("samples").isJsonArray()) for (JsonElement value : json.getAsJsonArray("samples")) {
+                JsonObject entry = value.getAsJsonObject();
+                SampleInfo sample = new SampleInfo(JsonMetadataSupport.text(entry, "sample_id"), JsonMetadataSupport.text(entry, "sample_name"));
+                sample.tissue = JsonMetadataSupport.text(entry, "tissue");
+                sample.condition = JsonMetadataSupport.text(entry, "condition");
+                sample.treatment = JsonMetadataSupport.text(entry, "treatment");
+                sample.timePoint = JsonMetadataSupport.text(entry, "time_point");
+                sample.biologicalReplicate = JsonMetadataSupport.text(entry, "biological_replicate");
+                sample.technicalReplicate = JsonMetadataSupport.text(entry, "technical_replicate");
+                experiment.samples.add(sample);
+                experiment.sampleGroups.put(sample.sampleId, JsonMetadataSupport.text(entry, "group"));
+            }
+            return experiment;
+        } catch (RuntimeException failure) {
+            throw new IOException("Invalid expression metadata fields: " + file + ": " + failure.getMessage(), failure);
+        }
     }
 
     private static ExpressionMatrix.DataType parseDataType(String value) {
@@ -494,6 +488,8 @@ public class ExpressionExperiment {
     public int getMatrixCount() { return matrices.size(); }
     
     public File getMetadataFile() { return metadataFile; }
+    /** Rebind a successfully published experiment from its staging file to its final metadata. */
+    public void setMetadataFile(File file) { this.metadataFile = file; }
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
     

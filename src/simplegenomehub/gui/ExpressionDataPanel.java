@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -28,6 +29,10 @@ import java.util.logging.Logger;
  * @author SimpleGenomeHub
  */
 public class ExpressionDataPanel extends JDialog {
+    private boolean closed;
+
+    @Override public void dispose() { closed = true; super.dispose(); }
+
     
     private static final Logger logger = Logger.getLogger(ExpressionDataPanel.class.getName());
     
@@ -42,6 +47,12 @@ public class ExpressionDataPanel extends JDialog {
     private JButton exportButton;
     private JButton browseMatrixButton;
     private JButton filterGenesButton;
+    private JButton dataTypeButton;
+    private JButton refreshButton;
+    private JPanel tablePanel;
+    private ExpressionExperimentLoader.LoadResult loadResult;
+    private boolean loading;
+    private long loadGeneration;
     
     /**
      * Constructor
@@ -51,7 +62,6 @@ public class ExpressionDataPanel extends JDialog {
         this.targetSpecies = species;
         this.experiments = new ArrayList<>();
         
-        loadExpressionExperiments();
         initializeComponents();
         setupLayout();
         setupEventHandlers();
@@ -59,14 +69,40 @@ public class ExpressionDataPanel extends JDialog {
         setSize(800, 600);
         setLocationRelativeTo(parent);
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
+        loadExpressionExperiments();
     }
     
     /**
      * Load expression experiments from species directory
      */
     private void loadExpressionExperiments() {
-        experiments = ExpressionExperimentDisplaySupport.loadExpressionExperiments(targetSpecies);
-        logger.info("Loaded " + experiments.size() + " expression experiments");
+        final long generation = ++loadGeneration;
+        loading = true;
+        updateButtons();
+        detailsArea.setText("Loading expression experiments...");
+        SwingWorker<ExpressionExperimentLoader.LoadResult, Void> worker =
+            new SwingWorker<ExpressionExperimentLoader.LoadResult, Void>() {
+                @Override protected ExpressionExperimentLoader.LoadResult doInBackground() {
+                    return ExpressionExperimentLoader.load(targetSpecies);
+                }
+                @Override protected void done() {
+                    if (!(!closed) || generation != loadGeneration) return;
+                    try { applyLoadedExperiments(get()); }
+                    catch (Exception failure) { detailsArea.setText("Unable to load expression experiments: " + failure.getMessage()); }
+                    finally { loading = false; updateButtons(); }
+                }
+            };
+        worker.execute();
+    }
+
+    private void applyLoadedExperiments(ExpressionExperimentLoader.LoadResult loaded) {
+        loadResult = loaded;
+        experiments = new ArrayList<>(loaded.getExperiments());
+        tableModel.fireTableDataChanged();
+        SimpleGenomeHubUi.setTitledBorderTitle(tablePanel, "Expression Experiments (" + experiments.size() + ")");
+        refreshDetailsArea();
+        updateButtons();
+        logger.info(loaded.getSummary());
     }
     
     /**
@@ -99,10 +135,18 @@ public class ExpressionDataPanel extends JDialog {
         detailsArea.setBorder(BorderFactory.createLoweredBevelBorder());
         
         // Action buttons
+        dataTypeButton = new JButton("Set Expression Data Type...");
+        dataTypeButton.setEnabled(false);
+        dataTypeButton.addActionListener(e -> chooseLegacyDataType());
         deleteButton = new JButton("Delete Experiment");
         exportButton = new JButton("Export Data");
         browseMatrixButton = new JButton("Browse Matrix");
         filterGenesButton = new JButton("Explore Multi. Gene Expression");
+        refreshButton = new JButton("Refresh");
+        refreshButton.addActionListener(e -> {
+            ExpressionExperimentLoader.invalidate(targetSpecies);
+            loadExpressionExperiments();
+        });
 
         // Initially disable buttons that require selection
         deleteButton.setEnabled(false);
@@ -129,7 +173,7 @@ public class ExpressionDataPanel extends JDialog {
         SimpleGenomeHubUi.styleSplitPane(splitPane);
         
         // Top of split: Experiments table
-        JPanel tablePanel = new JPanel(new BorderLayout());
+        tablePanel = new JPanel(new BorderLayout());
         tablePanel.setBorder(new TitledBorder("Expression Experiments (" + experiments.size() + ")"));
         
         JScrollPane tableScrollPane = new JScrollPane(experimentsTable);
@@ -153,13 +197,17 @@ public class ExpressionDataPanel extends JDialog {
         add(splitPane, BorderLayout.CENTER);
         
         // Bottom: Action buttons
-        JPanel buttonPanel = new JPanel(new FlowLayout());
-        buttonPanel.add(browseMatrixButton);
-        buttonPanel.add(filterGenesButton);
-        buttonPanel.add(Box.createHorizontalStrut(20));
-        buttonPanel.add(exportButton);
-        buttonPanel.add(Box.createHorizontalStrut(20));
-        buttonPanel.add(deleteButton);
+        JPanel buttonPanel = new JPanel(new GridLayout(2, 1));
+        JPanel matrixButtons = new JPanel(new FlowLayout());
+        matrixButtons.add(dataTypeButton);
+        matrixButtons.add(browseMatrixButton);
+        matrixButtons.add(filterGenesButton);
+        JPanel fileButtons = new JPanel(new FlowLayout());
+        fileButtons.add(refreshButton);
+        fileButtons.add(exportButton);
+        fileButtons.add(deleteButton);
+        buttonPanel.add(matrixButtons);
+        buttonPanel.add(fileButtons);
 
         add(buttonPanel, BorderLayout.SOUTH);
     }
@@ -241,11 +289,17 @@ public class ExpressionDataPanel extends JDialog {
      * Update button states based on selection
      */
     private void updateButtons() {
-        boolean hasSelection = experimentsTable.getSelectedRow() >= 0;
+        int selected = experimentsTable.getSelectedRow();
+        boolean hasSelection = !loading && selected >= 0 && selected < experiments.size();
+        boolean hasMatrix = hasSelection && !experiments.get(selected).getMatrices().isEmpty();
+        dataTypeButton.setEnabled(hasSelection && selected < experiments.size()
+            && experiments.get(selected).getStoredDataType() == null);
         deleteButton.setEnabled(hasSelection);
-        exportButton.setEnabled(hasSelection);
-        browseMatrixButton.setEnabled(hasSelection);
-        filterGenesButton.setEnabled(hasSelection);
+        exportButton.setEnabled(hasMatrix);
+        browseMatrixButton.setEnabled(hasMatrix);
+        filterGenesButton.setEnabled(hasMatrix);
+        refreshButton.setEnabled(!loading);
+        experimentsTable.setEnabled(!loading);
     }
     
     /**
@@ -262,52 +316,34 @@ public class ExpressionDataPanel extends JDialog {
                 "Confirm Delete", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
             
             if (result == JOptionPane.YES_OPTION) {
-                try {
-                    // Delete experiment files
-                    File expressionDir = targetSpecies.getExpressionDir();
-                    String experimentId = experiment.getExperimentId();
-                    
-                    File metadataFile = new File(expressionDir, experimentId + ".metadata.json");
-                    File matrixFile = new File(expressionDir, experimentId + ".matrix.tsv");
-                    
-                    boolean success = true;
-                    if (metadataFile.exists()) {
-                        success &= metadataFile.delete();
+                loading = true;
+                updateButtons();
+                SwingWorker<ExpressionExperimentLoader.LoadResult, Void> worker =
+                    new SwingWorker<ExpressionExperimentLoader.LoadResult, Void>() {
+                    @Override protected ExpressionExperimentLoader.LoadResult doInBackground() throws Exception {
+                        File expressionDir = targetSpecies.getExpressionDir();
+                        String id = experiment.getExperimentId();
+                        simplegenomehub.util.fileio.FileSetTransaction.commit(java.util.Collections.emptyMap(),
+                            java.util.Arrays.asList(new File(expressionDir, id + ".metadata.json").toPath(),
+                                new File(expressionDir, id + ".matrix.tsv").toPath()));
+                        targetSpecies.removeExpressionExperiment(id);
+                        ExpressionExperimentLoader.invalidate(targetSpecies);
+                        return ExpressionExperimentLoader.load(targetSpecies);
                     }
-                    if (matrixFile.exists()) {
-                        success &= matrixFile.delete();
+                    @Override protected void done() {
+                        try {
+                            if (!(!closed)) return;
+                            applyLoadedExperiments(get());
+                            JOptionPane.showMessageDialog(ExpressionDataPanel.this,
+                                "Experiment deleted successfully.", "Delete Complete", JOptionPane.INFORMATION_MESSAGE);
+                        } catch (Exception failure) {
+                            Throwable cause = failure.getCause() == null ? failure : failure.getCause();
+                            JOptionPane.showMessageDialog(ExpressionDataPanel.this,
+                                "Error deleting experiment: " + cause.getMessage(), "Delete Error", JOptionPane.ERROR_MESSAGE);
+                        } finally { loading = false; updateButtons(); }
                     }
-                    
-                    if (success) {
-                        // Remove from species
-                        targetSpecies.removeExpressionExperiment(experiment);
-
-                        // Refresh display
-                        loadExpressionExperiments();
-                        tableModel.fireTableDataChanged();
-                        refreshDetailsArea();
-                        updateButtons();
-
-                        // Update table border title
-                        JPanel tablePanel = (JPanel) ((JSplitPane) getContentPane().getComponent(1)).getTopComponent();
-                        ((TitledBorder) tablePanel.getBorder()).setTitle("Expression Experiments (" + experiments.size() + ")");
-                        tablePanel.repaint();
-
-                        JOptionPane.showMessageDialog(this,
-                            "Experiment deleted successfully.",
-                            "Delete Complete", JOptionPane.INFORMATION_MESSAGE);
-                    } else {
-                        JOptionPane.showMessageDialog(this,
-                            "Failed to delete some experiment files. Please check file permissions.",
-                            "Delete Failed", JOptionPane.ERROR_MESSAGE);
-                    }
-                    
-                } catch (Exception e) {
-                    logger.warning("Error deleting experiment: " + e.getMessage());
-                    JOptionPane.showMessageDialog(this,
-                        "Error deleting experiment: " + e.getMessage(),
-                        "Delete Error", JOptionPane.ERROR_MESSAGE);
-                }
+                };
+                worker.execute();
             }
         }
     }
@@ -406,14 +442,62 @@ public class ExpressionDataPanel extends JDialog {
         }
     }
 
+    private void chooseLegacyDataType() {
+        int row = experimentsTable.getSelectedRow();
+        if (row < 0 || row >= experiments.size()) return;
+        final ExpressionExperiment experiment = experiments.get(row);
+        if (experiment.getStoredDataType() != null) return;
+        Object selected = JOptionPane.showInputDialog(this,
+            "This older experiment has no recorded data type.\nChoose the original measurement type; values will not be converted.",
+            "Set Expression Data Type", JOptionPane.QUESTION_MESSAGE, null,
+            ExpressionMatrix.DataType.values(), null);
+        if (!(selected instanceof ExpressionMatrix.DataType)) return;
+        loading = true;
+        updateButtons();
+        SwingWorker<ExpressionExperimentLoader.LoadResult, Void> worker =
+            new SwingWorker<ExpressionExperimentLoader.LoadResult, Void>() {
+            private volatile boolean dataTypeSaved;
+
+            @Override protected ExpressionExperimentLoader.LoadResult doInBackground() throws Exception {
+                experiment.saveExplicitDataType((ExpressionMatrix.DataType) selected);
+                dataTypeSaved = true;
+                ExpressionExperimentLoader.invalidate(targetSpecies);
+                return ExpressionExperimentLoader.load(targetSpecies);
+            }
+            @Override protected void done() {
+                try {
+                    if (!(!closed)) return;
+                    applyLoadedExperiments(get());
+                } catch (Exception failure) {
+                    Throwable cause = failure.getCause() == null ? failure : failure.getCause();
+                    logger.log(Level.WARNING, dataTypeSaved
+                        ? "Expression data type saved, but refreshing experiments failed"
+                        : "Unable to save expression data type", failure);
+                    if (dataTypeSaved) {
+                        JOptionPane.showMessageDialog(ExpressionDataPanel.this,
+                            "The data type was saved, but the experiment list could not be refreshed.\n"
+                                + "Use Refresh or reopen this window.\n\n" + cause.getMessage(),
+                            "Data Type Saved; Refresh Failed", JOptionPane.WARNING_MESSAGE);
+                    } else {
+                        JOptionPane.showMessageDialog(ExpressionDataPanel.this, cause.getMessage(),
+                            "Unable to Save Data Type", JOptionPane.ERROR_MESSAGE);
+                    }
+                } finally { loading = false; updateButtons(); }
+            }
+        };
+        worker.execute();
+    }
+
     private void refreshDetailsArea() {
         int selectedRow = experimentsTable.getSelectedRow();
         if (selectedRow >= 0 && selectedRow < experiments.size()) {
             ExpressionExperiment experiment = experiments.get(selectedRow);
-            detailsArea.setText(ExpressionExperimentDisplaySupport.buildExperimentDetailsText(experiment));
+            String details = ExpressionExperimentDisplaySupport.buildExperimentDetailsText(experiment);
+            if (loadResult != null && !loadResult.getIssues().isEmpty()) details += "\nLOADING DETAILS\n" + loadResult.getDetails();
+            detailsArea.setText(details);
             detailsArea.setCaretPosition(0);
         } else {
-            detailsArea.setText("Select an experiment to view details.");
+            detailsArea.setText(loadResult != null ? loadResult.getDetails() : "Select an experiment to view details.");
         }
     }
     

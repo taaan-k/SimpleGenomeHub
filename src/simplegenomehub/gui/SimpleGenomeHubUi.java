@@ -447,6 +447,28 @@ public final class SimpleGenomeHubUi {
         }
     }
 
+    /** Updates the visible title even when window styling has wrapped its border. Call on the EDT. */
+    public static void setTitledBorderTitle(JComponent component, String title) {
+        TitledBorder titled = findTitledBorder(component.getBorder());
+        if (titled == null) {
+            component.setBorder(BorderFactory.createTitledBorder(component.getBorder(), title));
+        } else {
+            titled.setTitle(title);
+        }
+        component.revalidate();
+        component.repaint();
+    }
+
+    private static TitledBorder findTitledBorder(Border border) {
+        if (border instanceof TitledBorder) return (TitledBorder) border;
+        if (border instanceof CompoundBorder) {
+            CompoundBorder compound = (CompoundBorder) border;
+            TitledBorder outside = findTitledBorder(compound.getOutsideBorder());
+            return outside != null ? outside : findTitledBorder(compound.getInsideBorder());
+        }
+        return null;
+    }
+
     private static void styleTitledBorder(JComponent component) {
         Border border = component.getBorder();
         if (!(border instanceof TitledBorder)) {

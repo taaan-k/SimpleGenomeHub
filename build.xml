@@ -208,7 +208,7 @@
                executable="${javac.source.dir}/bin/${javac.command}"/>
     </target>
 
-    <target name="test-regression" depends="compile-regression"
+    <target name="test-regression" depends="compile-regression,test-expression,test-promoter,test-archive"
             description="Verify annotation import, table display and persistence using isolated fixtures">
         <mkdir dir="${build.dir}/regression/home-annotation"/>
         <java classname="simplegenomehub.regression.AnnotationPersistenceRegression"
@@ -216,6 +216,48 @@
             <sysproperty key="java.awt.headless" value="true"/>
             <sysproperty key="user.home" value="${build.dir}/regression/home-annotation"/>
             <arg value="${build.dir}/regression/annotation"/>
+        </java>
+    </target>
+
+    <target name="test-expression" depends="compile-regression" description="Historical expression metadata, type confirmation and query regression">
+        <mkdir dir="${build.dir}/regression/home-expression"/>
+        <java classname="simplegenomehub.regression.ExpressionLoadingRegression" classpathref="regression.classpath" fork="true" failonerror="true">
+            <sysproperty key="java.awt.headless" value="true"/>
+            <sysproperty key="user.home" value="${build.dir}/regression/home-expression"/>
+            <!-- Exercise the UTF-8 JVM that exposed historical GBK metadata failures. -->
+            <sysproperty key="file.encoding" value="UTF-8"/>
+        </java>
+        <java classname="simplegenomehub.regression.EncodingPriorityRegression" classpathref="regression.classpath" fork="true" failonerror="true">
+            <sysproperty key="java.awt.headless" value="true"/>
+            <sysproperty key="user.home" value="${build.dir}/regression/home-expression"/>
+            <sysproperty key="file.encoding" value="windows-1252"/>
+        </java>
+    </target>
+
+    <target name="test-promoter" depends="compile-regression">
+        <java classname="simplegenomehub.regression.PromoterCoordinateRegression" classpathref="regression.classpath" fork="true" failonerror="true">
+            <sysproperty key="java.awt.headless" value="true"/>
+            <sysproperty key="user.home" value="${build.dir}/regression/home-expression"/>
+        </java>
+    </target>
+
+    <target name="test-archive" depends="compile-regression">
+        <java classname="simplegenomehub.regression.ArchiveExportRegression" classpathref="regression.classpath" fork="true" failonerror="true">
+            <sysproperty key="java.awt.headless" value="true"/>
+            <sysproperty key="user.home" value="${build.dir}/regression/home-expression"/>
+        </java>
+    </target>
+
+    <target name="test-native-regression" depends="compile-regression" description="Opt-in graphical expression and citation checks">
+        <javac srcdir="${test.src.dir}" includes="simplegenomehub/gui/*Smoke.java" destdir="${build.test.classes.dir}" classpathref="regression.classpath" includeantruntime="false" encoding="UTF-8" source="11" target="11" fork="true" executable="${javac.source.dir}/bin/${javac.command}"/>
+        <mkdir dir="${build.dir}/regression/home-native"/>
+        <java classname="simplegenomehub.gui.ExpressionManagementSmoke" classpathref="regression.classpath" fork="true" failonerror="true">
+            <sysproperty key="user.home" value="${build.dir}/regression/home-native"/>
+            <sysproperty key="file.encoding" value="UTF-8"/>
+        </java>
+        <java classname="simplegenomehub.gui.StandaloneCitationSmoke" classpathref="regression.classpath" fork="true" failonerror="true">
+            <sysproperty key="user.home" value="${build.dir}/regression/home-native"/>
+            <sysproperty key="file.encoding" value="UTF-8"/>
         </java>
     </target>
 

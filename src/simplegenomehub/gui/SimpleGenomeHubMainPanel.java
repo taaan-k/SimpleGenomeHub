@@ -31,6 +31,9 @@ public class SimpleGenomeHubMainPanel extends JPanel implements SpeciesManager.S
     private SpeciesTreePanel speciesTreePanel;
     private SpeciesInfoPanel speciesInfoPanel;
     private JLabel statusLabel;
+    private HubCitationPanel citationPanel;
+    private HubCitationNotice citationNotice;
+    private boolean disposed;
         
     /**
      * Constructor
@@ -65,6 +68,8 @@ public class SimpleGenomeHubMainPanel extends JPanel implements SpeciesManager.S
         speciesTreePanel = new SpeciesTreePanel(speciesManager);
         speciesInfoPanel = new SpeciesInfoPanel(speciesManager);
         statusLabel = new JLabel("Ready");
+        citationPanel = new HubCitationPanel();
+        citationNotice = new HubCitationNotice(() -> !disposed, citationPanel::openPaper);
     }
     
     /**
@@ -74,7 +79,9 @@ public class SimpleGenomeHubMainPanel extends JPanel implements SpeciesManager.S
         setLayout(new BorderLayout());
         setBackground(Color.WHITE);
         
-        add(createTitleBannerPanel(), BorderLayout.NORTH);
+        JPanel page = new JPanel(new BorderLayout());
+        page.setBackground(Color.WHITE);
+        page.add(createTitleBannerPanel(), BorderLayout.NORTH);
 
         JSplitPane mainSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
         mainSplitPane.setDividerLocation(450);
@@ -88,10 +95,15 @@ public class SimpleGenomeHubMainPanel extends JPanel implements SpeciesManager.S
         contentPanel.setBorder(SimpleGenomeHubUi.createInnerPadding(14, 14, 12, 14));
         contentPanel.add(mainSplitPane, BorderLayout.CENTER);
 
-        add(contentPanel, BorderLayout.CENTER);
+        page.add(contentPanel, BorderLayout.CENTER);
 
-        JPanel statusPanel = createStatusPanel();
-        add(statusPanel, BorderLayout.SOUTH);
+        JPanel footer = new JPanel(new BorderLayout());
+        footer.setOpaque(false);
+        footer.add(citationPanel, BorderLayout.CENTER);
+        footer.add(createStatusPanel(), BorderLayout.SOUTH);
+        page.add(footer, BorderLayout.SOUTH);
+        citationNotice.setContent(page);
+        add(citationNotice, BorderLayout.CENTER);
     }
     
     /**
@@ -170,7 +182,7 @@ public class SimpleGenomeHubMainPanel extends JPanel implements SpeciesManager.S
      * Create status panel
      */
     private JPanel createStatusPanel() {
-        JPanel statusPanel = new JPanel(new BorderLayout());
+        JPanel statusPanel = new JPanel(new BorderLayout(10, 0));
         statusPanel.setBorder(BorderFactory.createEtchedBorder());
         statusPanel.setBackground(new Color(236, 243, 252));
         statusPanel.add(statusLabel, BorderLayout.WEST);
@@ -180,16 +192,17 @@ public class SimpleGenomeHubMainPanel extends JPanel implements SpeciesManager.S
         JLabel dataDirLabel = new JLabel("Data Directory: " + dataDir);
         dataDirLabel.setFont(SimpleGenomeHubStyle.plain(dataDirLabel.getFont(), 11f));
 
-        JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        dataDirLabel.setToolTipText(dataDir);
+        JPanel rightPanel = new JPanel(new BorderLayout(10, 0));
         rightPanel.setOpaque(false);
         JButton logButton = new JButton("Runtime Log");
         logButton.setToolTipText("View the current application log");
         logButton.addActionListener(event -> new RuntimeLogDialog(
             SwingUtilities.getWindowAncestor(this)).setVisible(true));
-        rightPanel.add(logButton);
-        rightPanel.add(dataDirLabel);
-        rightPanel.add(SimpleGenomeHubFontManager.createScaleControl());
-        statusPanel.add(rightPanel, BorderLayout.EAST);
+        rightPanel.add(logButton, BorderLayout.WEST);
+        rightPanel.add(dataDirLabel, BorderLayout.CENTER);
+        rightPanel.add(SimpleGenomeHubFontManager.createScaleControl(), BorderLayout.EAST);
+        statusPanel.add(rightPanel, BorderLayout.CENTER);
         
         return statusPanel;
     }
@@ -325,6 +338,12 @@ public class SimpleGenomeHubMainPanel extends JPanel implements SpeciesManager.S
         return speciesManager;
     }
     
+    @Override public void removeNotify() {
+        disposed = true;
+        if (citationNotice != null) citationNotice.dispose();
+        super.removeNotify();
+    }
+
     public static void main(String[] args) {
         RuntimeLogManager.initialize();
         Thread.setDefaultUncaughtExceptionHandler(SimpleGenomeHubMainPanel::handleUnexpectedError);
