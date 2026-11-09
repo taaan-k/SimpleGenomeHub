@@ -29,6 +29,7 @@ public class GeneSearchResult {
     
     // Expression data
     private Map<String, ExpressionData> expressionData;
+    private ExpressionExperimentLoader.LoadResult expressionLoadResult;
     
     // Gene structure data
     private GeneStructureInfo structureInfo;
@@ -107,6 +108,9 @@ public class GeneSearchResult {
     public void setExpressionData(Map<String, ExpressionData> expressionData) {
         this.expressionData = expressionData != null ? expressionData : new HashMap<>();
     }
+
+    public ExpressionExperimentLoader.LoadResult getExpressionLoadResult() { return expressionLoadResult; }
+    public void setExpressionLoadResult(ExpressionExperimentLoader.LoadResult value) { expressionLoadResult = value; }
     
     public GeneStructureInfo getStructureInfo() {
         return structureInfo;

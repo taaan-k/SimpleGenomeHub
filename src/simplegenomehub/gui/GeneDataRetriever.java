@@ -90,7 +90,9 @@ public class GeneDataRetriever {
             result.setSequences(sequences);
             result.setResolvedGeneId(resolvedGeneId);
 
-            Map<String, ExpressionData> expressionData = getGeneExpressionData(geneId, species);
+            ExpressionExperimentLoader.LoadResult expressionLoad = ExpressionExperimentLoader.load(species);
+            result.setExpressionLoadResult(expressionLoad);
+            Map<String, ExpressionData> expressionData = getGeneExpressionData(geneId, species, expressionLoad);
             result.setExpressionData(expressionData);
 
             boolean found = !sequences.isEmpty() || !expressionData.isEmpty() || exactGffGeneMatch;
@@ -338,11 +340,16 @@ public class GeneDataRetriever {
      * For gene IDs, also searches for corresponding transcript IDs
      */
     public Map<String, ExpressionData> getGeneExpressionData(String geneId, SpeciesInfo species) {
-        Map<String, ExpressionData> expressionData = new HashMap<>();
+        return getGeneExpressionData(geneId, species, ExpressionExperimentLoader.load(species));
+    }
+
+    private Map<String, ExpressionData> getGeneExpressionData(String geneId, SpeciesInfo species,
+            ExpressionExperimentLoader.LoadResult loaded) {
+        Map<String, ExpressionData> expressionData = new LinkedHashMap<>();
+        if (loaded.getReadyMatrixCount() == 0) return expressionData;
         
         try {
-            // Force-load expression experiments if they haven't been loaded yet
-            List<ExpressionExperiment> experiments = loadExpressionExperimentsIfNeeded(species);
+            List<ExpressionExperiment> experiments = loaded.getExperiments();
             
             // First try the gene ID directly
             for (ExpressionExperiment experiment : experiments) {
@@ -705,87 +712,6 @@ public class GeneDataRetriever {
         } catch (Exception e) {
             logger.log(Level.WARNING, "Failed to force-load functional annotations for " + species.getDisplayName(), e);
             return null;
-        }
-    }
-    
-    /**
-     * Force-load expression experiments if they haven't been loaded yet
-     */
-    private List<ExpressionExperiment> loadExpressionExperimentsIfNeeded(SpeciesInfo species) {
-        try {
-            List<ExpressionExperiment> experiments = species.getExpressionExperiments();
-            
-            // If no experiments loaded, try to load them from disk
-            if (experiments.isEmpty()) {
-                File expressionDir = species.getExpressionDir();
-                logger.info("No expression experiments in memory, loading from disk: " + 
-                           (expressionDir != null ? expressionDir.getAbsolutePath() : "null"));
-                
-                if (expressionDir != null && expressionDir.exists()) {
-                    File[] metadataFiles = expressionDir.listFiles((dir, name) -> name.endsWith(".metadata.json"));
-                    if (metadataFiles != null) {
-                        logger.info("Found " + metadataFiles.length + " expression metadata files");
-                        
-                        for (File metadataFile : metadataFiles) {
-                            try {
-                                ExpressionExperiment experiment = ExpressionExperiment.loadMetadata(metadataFile);
-                                if (experiment != null) {
-                                    // Load associated matrix data
-                                    loadExperimentMatrices(experiment, expressionDir);
-                                    // Add to species
-                                    species.addExpressionExperiment(experiment);
-                                    logger.info("Loaded expression experiment: " + experiment.getExperimentId());
-                                }
-                            } catch (Exception e) {
-                                logger.warning("Failed to load experiment from " + metadataFile.getName() + ": " + e.getMessage());
-                            }
-                        }
-                        
-                        // Get the updated list
-                        experiments = species.getExpressionExperiments();
-                        logger.info("Total expression experiments loaded: " + experiments.size());
-                    }
-                }
-            }
-            
-            return experiments;
-            
-        } catch (Exception e) {
-            logger.log(Level.WARNING, "Failed to load expression experiments for " + species.getDisplayName(), e);
-            return new ArrayList<>();
-        }
-    }
-    
-    /**
-     * Load matrix data for an experiment (adapted from ExpressionDataPanel)
-     */
-    private void loadExperimentMatrices(ExpressionExperiment experiment, File expressionDir) {
-        String experimentId = experiment.getExperimentId();
-        File matrixFile = new File(expressionDir, experimentId + ".matrix.tsv");
-        
-        if (matrixFile.exists()) {
-            try {
-                ExpressionMatrix.DataType dataType = experiment.getStoredDataType();
-                if (dataType == null) {
-                    logger.warning("Missing data_type in metadata for experiment " + experimentId
-                        + "; matrix was not loaded to avoid assuming TPM.");
-                    return;
-                }
-                ExpressionMatrix matrix = new ExpressionMatrix(experimentId + "_matrix", 
-                                                              experiment.getTitle() + " Matrix", 
-                                                              dataType);
-                boolean loaded = matrix.loadFromFile(matrixFile);
-                if (loaded) {
-                    experiment.addMatrix(matrix);
-                    logger.info("Loaded matrix for experiment " + experimentId + " from " + matrixFile.getName());
-                } else {
-                    logger.warning("Failed to parse matrix file for experiment " + experimentId);
-                }
-            } catch (Exception e) {
-                logger.warning("Failed to load matrix for experiment " + experimentId + ": " + e.getMessage());
-            }
-        } else {
-            logger.warning("Matrix file not found for experiment " + experimentId + ": " + matrixFile.getAbsolutePath());
         }
     }
     
